@@ -1,6 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import client from "../../api/client";
 import authReducer, { logout } from "../auth/authSlice";
+import benchmarksReducer from "../benchmarks/benchmarksSlice";
 import comparisonReducer from "../comparison/comparisonSlice";
 import documentTypesReducer from "../documentTypes/documentTypesSlice";
 import modelsReducer from "../models/modelsSlice";
@@ -13,6 +14,7 @@ export const store = configureStore({
     comparison: comparisonReducer,
     documentTypes: documentTypesReducer,
     runs: runsReducer,
+    benchmarks: benchmarksReducer,
   },
 });
 

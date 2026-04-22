@@ -3,6 +3,7 @@ import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import { swaggerOptions } from "../swagger/swaggerConfig";
 import authRouter from "./auth";
+import benchmarksRouter from "./benchmarks";
 import documentTypesRouter from "./documentTypes";
 import downloadRouter from "./download";
 import modelsRouter from "./models";
@@ -17,6 +18,7 @@ router.use("/auth", authRouter);
 router.use("/download", downloadRouter);
 router.use("/models", requireAuth, modelsRouter);
 router.use("/document-types", requireAuth, documentTypesRouter);
+router.use("/benchmarks", requireAuth, benchmarksRouter);
 router.use(requireAuth, runsRouter);
 router.use((_req: Request, res: Response, _next: NextFunction) => {
   res.status(404).json({ error: "Not found" });

@@ -71,8 +71,9 @@ export async function runCompare(opts: {
   file: Express.Multer.File;
   documentTypeKey: string;
   userId: number | null;
+  benchmarkId?: number | null;
 }): Promise<{ run: ComparisonRun; response: any }> {
-  const { file, documentTypeKey, userId } = opts;
+  const { file, documentTypeKey, userId, benchmarkId = null } = opts;
 
   const documentType = await DocumentType.findOneBy({ key: documentTypeKey });
   if (!documentType) {
@@ -94,6 +95,7 @@ export async function runCompare(opts: {
     documentType: documentType.key,
     timings: null,
     recommended: null,
+    benchmarkId,
     hasGroundTruth: false,
     summary: null,
   });

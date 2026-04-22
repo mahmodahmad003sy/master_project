@@ -45,6 +45,9 @@ export class ComparisonRun extends BaseEntity {
   @Column({ type: "varchar", nullable: true })
   recommended!: string | null;
 
+  @Column({ name: "benchmark_id", type: "int", nullable: true })
+  benchmarkId!: number | null;
+
   @Column({ name: "has_ground_truth", default: false })
   hasGroundTruth!: boolean;
 

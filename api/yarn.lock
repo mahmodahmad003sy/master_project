@@ -111,6 +111,13 @@
   resolved "https://registry.npmjs.org/@tsconfig/node16/-/node16-1.0.4.tgz"
   integrity sha512-vxhUy4J8lyeyinH7Azl1pdd43GJhZH/tP2weN8TntQblOY+A0XbT8DJk1/oCPuOOyg/Ja757rG0CgHcWC8OfMA==
 
+"@types/adm-zip@^0.5.8":
+  version "0.5.8"
+  resolved "https://registry.npmjs.org/@types/adm-zip/-/adm-zip-0.5.8.tgz"
+  integrity sha512-RVVH7QvZYbN+ihqZ4kX/dMiowf6o+Jk1fNwiSdx0NahBJLU787zkULhGhJM8mf/obmLGmgdMM0bXsQTmyfbR7Q==
+  dependencies:
+    "@types/node" "*"
+
 "@types/bcrypt@^6.0.0":
   version "6.0.0"
   resolved "https://registry.npmjs.org/@types/bcrypt/-/bcrypt-6.0.0.tgz"
@@ -260,6 +267,11 @@ acorn@^8.11.0, acorn@^8.4.1:
   version "8.16.0"
   resolved "https://registry.npmjs.org/acorn/-/acorn-8.16.0.tgz"
   integrity sha512-UVJyE9MttOsBQIDKw1skb9nAwQuR5wuGD3+82K6JgJlm/Y+KI92oNsMNGZCYdDsVtRHSak0pcV5Dno5+4jh9sw==
+
+adm-zip@^0.5.17:
+  version "0.5.17"
+  resolved "https://registry.npmjs.org/adm-zip/-/adm-zip-0.5.17.tgz"
+  integrity sha512-+Ut8d9LLqwEvHHJl1+PIHqoyDxFgVN847JTVM3Izi3xHDWPE4UtzzXysMZQs64DMcrJfBeS/uoEP4AD3HQHnQQ==
 
 ansi-regex@^5.0.1:
   version "5.0.1"

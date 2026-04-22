@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import config from "../config/default.json";
+import { Benchmark } from "./entities/Benchmark";
 import { ComparisonRun } from "./entities/ComparisonRun";
 import { DocumentType } from "./entities/DocumentType";
 import { Model } from "./entities/Model";
@@ -15,5 +16,5 @@ export const AppDataSource = new DataSource({
   database: config.db.database,
   synchronize: config.db.synchronize,
   logging: config.db.logging,
-  entities: [Model, User, DocumentType, ComparisonRun],
+  entities: [Model, User, DocumentType, ComparisonRun, Benchmark],
 });

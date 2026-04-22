@@ -12,6 +12,8 @@ import { useDispatch, useSelector } from "react-redux";
 import RequireAuth from "./components/RequireAuth";
 import { logout } from "./features/auth/authSlice";
 import ComparePage from "./pages/ComparePage";
+import BenchmarkDetailPage from "./pages/BenchmarkDetailPage";
+import BenchmarksPage from "./pages/BenchmarksPage";
 import LoginPage from "./pages/LoginPage";
 import ModelsPage from "./pages/ModelsPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -33,6 +35,8 @@ export default function App() {
 
   const selectedKey = pathname.startsWith("/runs/")
     ? "/runs"
+    : pathname.startsWith("/benchmarks/")
+      ? "/benchmarks"
     : pathname;
 
   return (
@@ -49,6 +53,9 @@ export default function App() {
           </Menu.Item>
           <Menu.Item key="/runs">
             <Link to="/runs">Runs</Link>
+          </Menu.Item>
+          <Menu.Item key="/benchmarks">
+            <Link to="/benchmarks">Benchmarks</Link>
           </Menu.Item>
           <Menu.Item key="/models">
             <Link to="/models">Models</Link>
@@ -75,6 +82,11 @@ export default function App() {
                   <Route path="/compare" element={<ComparePage />} />
                   <Route path="/runs" element={<RunsPage />} />
                   <Route path="/runs/:id" element={<RunDetailPage />} />
+                  <Route path="/benchmarks" element={<BenchmarksPage />} />
+                  <Route
+                    path="/benchmarks/:id"
+                    element={<BenchmarkDetailPage />}
+                  />
                   <Route path="/models" element={<ModelsPage />} />
                   <Route path="/" element={<Navigate to="/compare" replace />} />
                   <Route path="*" element={<Navigate to="/compare" replace />} />
