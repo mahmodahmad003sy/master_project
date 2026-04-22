@@ -1,18 +1,21 @@
 import { configureStore } from "@reduxjs/toolkit";
-import authReducer, { logout } from "../auth/authSlice";
-import modelsReducer from "../models/modelsSlice";
-import modelFilesReducer from "../modelFiles/modelFilesSlice";
 import client from "../../api/client";
+import authReducer, { logout } from "../auth/authSlice";
+import comparisonReducer from "../comparison/comparisonSlice";
+import documentTypesReducer from "../documentTypes/documentTypesSlice";
+import modelFilesReducer from "../modelFiles/modelFilesSlice";
+import modelsReducer from "../models/modelsSlice";
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     models: modelsReducer,
     modelFiles: modelFilesReducer,
+    comparison: comparisonReducer,
+    documentTypes: documentTypesReducer,
   },
 });
 
-// auto-logout on 401
 client.interceptors.response.use(
   (res) => res,
   (err) => {

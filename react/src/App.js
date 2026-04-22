@@ -1,25 +1,25 @@
-// src/App.jsx
 import React from "react";
-import { Layout, Menu, Button } from "antd";
+import { Button, Layout, Menu } from "antd";
 import {
   Link,
-  Routes,
-  Route,
-  useLocation,
   Navigate,
+  Route,
+  Routes,
+  useLocation,
   useNavigate,
 } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
-import ModelsPage from "./pages/ModelsPage";
-import ResultsPage from "./pages/ResultsPage";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
-import ModelFilesPage from "./pages/ModelFilesPage";
-import DetectTabsPage from "./pages/DetectTabsPage";
+import { useDispatch, useSelector } from "react-redux";
 import RequireAuth from "./components/RequireAuth";
 import { logout } from "./features/auth/authSlice";
+import ComparePage from "./pages/ComparePage";
+import DetectTabsPage from "./pages/DetectTabsPage";
+import LoginPage from "./pages/LoginPage";
+import ModelFilesPage from "./pages/ModelFilesPage";
+import ModelsPage from "./pages/ModelsPage";
+import RegisterPage from "./pages/RegisterPage";
+import ResultsPage from "./pages/ResultsPage";
 
-const { Header, Content, Footer } = Layout;
+const { Content, Footer, Header } = Layout;
 
 export default function App() {
   const { pathname } = useLocation();
@@ -41,6 +41,9 @@ export default function App() {
           selectedKeys={[pathname]}
           style={{ flex: 1 }}
         >
+          <Menu.Item key="/compare">
+            <Link to="/compare">Compare</Link>
+          </Menu.Item>
           <Menu.Item key="/upload">
             <Link to="/upload">Upload</Link>
           </Menu.Item>
@@ -52,11 +55,11 @@ export default function App() {
           </Menu.Item>
         </Menu>
 
-        {user && (
+        {user ? (
           <Button type="primary" onClick={handleLogout}>
             Logout
           </Button>
-        )}
+        ) : null}
       </Header>
 
       <Content style={{ padding: 24 }}>
@@ -69,12 +72,13 @@ export default function App() {
             element={
               <RequireAuth>
                 <Routes>
+                  <Route path="/compare" element={<ComparePage />} />
                   <Route path="/upload" element={<DetectTabsPage />} />
                   <Route path="/models" element={<ModelsPage />} />
                   <Route path="/models-files" element={<ModelFilesPage />} />
                   <Route path="/results/:runId" element={<ResultsPage />} />
-                  <Route path="/" element={<Navigate to="/upload" replace />} />
-                  <Route path="*" element={<Navigate to="/upload" replace />} />
+                  <Route path="/" element={<Navigate to="/compare" replace />} />
+                  <Route path="*" element={<Navigate to="/compare" replace />} />
                 </Routes>
               </RequireAuth>
             }

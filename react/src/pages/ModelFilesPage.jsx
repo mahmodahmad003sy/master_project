@@ -28,6 +28,7 @@ import {
   setFilters,
   setPagination,
 } from "../features/modelFiles/modelFilesSlice";
+import { API_BASE_URL } from "../api/client";
 
 const { RangePicker } = DatePicker;
 
@@ -43,13 +44,11 @@ export default function ModelFilesPage() {
   const [previewJson, setPreviewJson] = useState(null);
   const [viewType, setViewType] = useState("table");
 
-  const BASE = process.env.REACT_APP_API_URL || "http://localhost:3000";
-
   useEffect(() => {
     dispatch(fetchModelFiles());
   }, [dispatch, filters, pagination]);
 
-  const makeUrl = (name) => `${BASE}/download/${encodeURIComponent(name)}`;
+  const makeUrl = (name) => `${API_BASE_URL}/download/${encodeURIComponent(name)}`;
 
   useEffect(() => {
     files.forEach(({ filename, outputName }) => {
