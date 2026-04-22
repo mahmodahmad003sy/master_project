@@ -1,5 +1,8 @@
 node_modules
 .history
-tmp
 dist
 client
+tmp/*
+!tmp/runs/
+tmp/runs/*
+!tmp/runs/.gitkeep

@@ -7,6 +7,8 @@
   },
   "MODELS_BASE_PATH": "D:/Master/service/api/tmp",
   "DETECTION_SERVICE_URL": "http://localhost:8000",
+  "COMPARE_SERVICE_URL": "http://localhost:8000",
+  "RUNS_BASE_PATH": "D:/Master/service/application/api/tmp/runs",
   "db": {
     "type": "postgres",
     "host": "localhost",
