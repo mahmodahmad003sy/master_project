@@ -13,7 +13,7 @@ export default function LoginPage() {
     dispatch(login(vals))
       .unwrap()
       .then(() => {
-        nav("/upload");
+        nav("/compare");
       })
       .catch((errMsg) => {
         message.error(errMsg);

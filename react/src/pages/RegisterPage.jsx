@@ -13,7 +13,7 @@ export default function RegisterPage() {
     dispatch(register(vals))
       .unwrap()
       .then(() => {
-        nav("/upload");
+        nav("/compare");
       })
       .catch((errMsg) => {
         message.error(errMsg);

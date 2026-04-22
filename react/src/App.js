@@ -12,12 +12,11 @@ import { useDispatch, useSelector } from "react-redux";
 import RequireAuth from "./components/RequireAuth";
 import { logout } from "./features/auth/authSlice";
 import ComparePage from "./pages/ComparePage";
-import DetectTabsPage from "./pages/DetectTabsPage";
 import LoginPage from "./pages/LoginPage";
-import ModelFilesPage from "./pages/ModelFilesPage";
 import ModelsPage from "./pages/ModelsPage";
 import RegisterPage from "./pages/RegisterPage";
-import ResultsPage from "./pages/ResultsPage";
+import RunDetailPage from "./pages/RunDetailPage";
+import RunsPage from "./pages/RunsPage";
 
 const { Content, Footer, Header } = Layout;
 
@@ -32,26 +31,27 @@ export default function App() {
     navigate("/login");
   };
 
+  const selectedKey = pathname.startsWith("/runs/")
+    ? "/runs"
+    : pathname;
+
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <Header style={{ display: "flex", alignItems: "center" }}>
         <Menu
           theme="dark"
           mode="horizontal"
-          selectedKeys={[pathname]}
+          selectedKeys={[selectedKey]}
           style={{ flex: 1 }}
         >
           <Menu.Item key="/compare">
             <Link to="/compare">Compare</Link>
           </Menu.Item>
-          <Menu.Item key="/upload">
-            <Link to="/upload">Upload</Link>
+          <Menu.Item key="/runs">
+            <Link to="/runs">Runs</Link>
           </Menu.Item>
           <Menu.Item key="/models">
             <Link to="/models">Models</Link>
-          </Menu.Item>
-          <Menu.Item key="/models-files">
-            <Link to="/models-files">Model Files</Link>
           </Menu.Item>
         </Menu>
 
@@ -73,10 +73,9 @@ export default function App() {
               <RequireAuth>
                 <Routes>
                   <Route path="/compare" element={<ComparePage />} />
-                  <Route path="/upload" element={<DetectTabsPage />} />
+                  <Route path="/runs" element={<RunsPage />} />
+                  <Route path="/runs/:id" element={<RunDetailPage />} />
                   <Route path="/models" element={<ModelsPage />} />
-                  <Route path="/models-files" element={<ModelFilesPage />} />
-                  <Route path="/results/:runId" element={<ResultsPage />} />
                   <Route path="/" element={<Navigate to="/compare" replace />} />
                   <Route path="*" element={<Navigate to="/compare" replace />} />
                 </Routes>

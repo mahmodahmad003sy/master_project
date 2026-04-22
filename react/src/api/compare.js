@@ -19,6 +19,10 @@ export const runCompareApi = (file, documentTypeKey, onProgress) => {
 
 export const fetchRun = (id) => client.get(`/runs/${id}`);
 
+export const listRunsApi = (params = {}) => client.get("/runs", { params });
+
+export const deleteRunApi = (id) => client.delete(`/runs/${id}`);
+
 export const fetchRunImageBlob = (id) =>
   client.get(`/runs/${id}/image`, { responseType: "blob" });
 

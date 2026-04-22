@@ -3,16 +3,16 @@ import client from "../../api/client";
 import authReducer, { logout } from "../auth/authSlice";
 import comparisonReducer from "../comparison/comparisonSlice";
 import documentTypesReducer from "../documentTypes/documentTypesSlice";
-import modelFilesReducer from "../modelFiles/modelFilesSlice";
 import modelsReducer from "../models/modelsSlice";
+import runsReducer from "../runs/runsSlice";
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     models: modelsReducer,
-    modelFiles: modelFilesReducer,
     comparison: comparisonReducer,
     documentTypes: documentTypesReducer,
+    runs: runsReducer,
   },
 });
 
