@@ -1,14 +1,13 @@
-// src/data-source.ts
-import "reflect-metadata"; // ← must come first
+import "reflect-metadata";
 import { DataSource } from "typeorm";
 import config from "../config/default.json";
+import { ComparisonRun } from "./entities/ComparisonRun";
+import { DocumentType } from "./entities/DocumentType";
 import { Model } from "./entities/Model";
-import { ModelFile } from "./entities/ModelFile";
 import { User } from "./entities/User";
-import { TestRun } from "./entities/TestRun";
 
 export const AppDataSource = new DataSource({
-  type: config.db.type as any, // e.g. "postgres"
+  type: config.db.type as any,
   host: config.db.host,
   port: config.db.port,
   username: config.db.username,
@@ -16,5 +15,5 @@ export const AppDataSource = new DataSource({
   database: config.db.database,
   synchronize: config.db.synchronize,
   logging: config.db.logging,
-  entities: [Model, User, ModelFile, TestRun],
+  entities: [Model, User, DocumentType, ComparisonRun],
 });

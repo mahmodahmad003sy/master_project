@@ -6,19 +6,19 @@ import {
   PrimaryGeneratedColumn,
 } from "typeorm";
 
-@Entity("users")
-export class User extends BaseEntity {
+@Entity("document_types")
+export class DocumentType extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
   @Column({ unique: true })
-  email!: string;
+  key!: string;
 
   @Column()
   name!: string;
 
-  @Column()
-  password!: string;
+  @Column({ type: "json" })
+  schema!: Record<string, unknown>;
 
   @CreateDateColumn({ name: "created_at" })
   createdAt!: Date;
