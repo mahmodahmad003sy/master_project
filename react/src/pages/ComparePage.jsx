@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -17,10 +17,12 @@ import { CloudUploadOutlined, UploadOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchRunImageBlob } from "../api/compare";
 import ApproachColumn from "../components/compare/ApproachColumn";
+import GroundTruthDrawer from "../components/compare/GroundTruthDrawer";
 import RecommendedBanner from "../components/compare/RecommendedBanner";
 import TimingBar from "../components/compare/TimingBar";
 import { resetComparison, runComparison } from "../features/comparison/comparisonSlice";
 import { loadDocumentTypes } from "../features/documentTypes/documentTypesSlice";
+import { clearDetail, loadRunDetail } from "../features/runs/runsSlice";
 
 const { Text, Title } = Typography;
 
@@ -84,13 +86,20 @@ function computeAgreements(schemaFields, resultsByApproach) {
   return output;
 }
 
+function mapFieldScores(metrics, approach) {
+  const scores = metrics?.perApproach?.[approach]?.fields || [];
+  return Object.fromEntries(scores.map((field) => [field.key, field]));
+}
+
 export default function ComparePage() {
   const dispatch = useDispatch();
   const documentTypesState = useSelector((state) => state.documentTypes);
   const comparisonState = useSelector((state) => state.comparison);
+  const runsDetail = useSelector((state) => state.runs.detail);
   const [documentType, setDocumentType] = useState(null);
   const [fileList, setFileList] = useState([]);
   const [imageUrl, setImageUrl] = useState(null);
+  const [groundTruthOpen, setGroundTruthOpen] = useState(false);
 
   useEffect(() => {
     dispatch(loadDocumentTypes());
@@ -101,6 +110,19 @@ export default function ComparePage() {
       setDocumentType(documentTypesState.items[0].key);
     }
   }, [documentType, documentTypesState.items]);
+
+  useEffect(() => {
+    if (comparisonState.status === "ok" && comparisonState.currentRunId) {
+      dispatch(loadRunDetail(comparisonState.currentRunId));
+    }
+  }, [comparisonState.currentRunId, comparisonState.status, dispatch]);
+
+  useEffect(
+    () => () => {
+      dispatch(clearDetail());
+    },
+    [dispatch]
+  );
 
   useEffect(() => {
     if (!comparisonState.currentRunId || comparisonState.status !== "ok") {
@@ -151,6 +173,19 @@ export default function ComparePage() {
     hybrid: comparisonState.response?.hybrid || null,
   };
   const agreements = computeAgreements(schema.fields, byApproach);
+  const detail =
+    runsDetail?.run?.id === comparisonState.currentRunId ? runsDetail : null;
+  const metrics = detail?.artifacts?.metrics || null;
+  const groundTruth = detail?.artifacts?.groundTruth || null;
+
+  const fieldScores = useMemo(
+    () => ({
+      classical: mapFieldScores(metrics, "classical"),
+      vlm: mapFieldScores(metrics, "vlm"),
+      hybrid: mapFieldScores(metrics, "hybrid"),
+    }),
+    [metrics]
+  );
 
   const handleRun = () => {
     if (!documentType) {
@@ -169,7 +204,9 @@ export default function ComparePage() {
 
   const handleReset = () => {
     dispatch(resetComparison());
+    dispatch(clearDetail());
     setFileList([]);
+    setGroundTruthOpen(false);
     setImageUrl((current) => {
       if (current) {
         URL.revokeObjectURL(current);
@@ -220,11 +257,28 @@ export default function ComparePage() {
             Run comparison
           </Button>
 
-          <Button onClick={handleReset} disabled={comparisonState.status === "running"}>
+          <Button
+            onClick={() => setGroundTruthOpen(true)}
+            disabled={!comparisonState.currentRunId}
+          >
+            {groundTruth ? "Edit ground truth" : "Add ground truth"}
+          </Button>
+
+          <Button
+            onClick={handleReset}
+            disabled={comparisonState.status === "running"}
+          >
             Reset
           </Button>
         </Space>
       </Card>
+
+      <GroundTruthDrawer
+        open={groundTruthOpen}
+        onClose={() => setGroundTruthOpen(false)}
+        runId={comparisonState.currentRunId}
+        initialGt={groundTruth}
+      />
 
       {documentTypesState.status === "fail" ? (
         <Alert
@@ -300,6 +354,8 @@ export default function ComparePage() {
                 agreements={agreements}
                 schemaFields={schema.fields}
                 schemaArrays={schema.arrays}
+                score={metrics?.summary?.classical ?? null}
+                fieldScoresByKey={fieldScores.classical}
               />
             </Col>
 
@@ -311,6 +367,8 @@ export default function ComparePage() {
                 agreements={agreements}
                 schemaFields={schema.fields}
                 schemaArrays={schema.arrays}
+                score={metrics?.summary?.vlm ?? null}
+                fieldScoresByKey={fieldScores.vlm}
               />
             </Col>
 
@@ -322,6 +380,8 @@ export default function ComparePage() {
                 agreements={agreements}
                 schemaFields={schema.fields}
                 schemaArrays={schema.arrays}
+                score={metrics?.summary?.hybrid ?? null}
+                fieldScoresByKey={fieldScores.hybrid}
               />
             </Col>
           </Row>

@@ -1,17 +1,25 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Col, Empty, Row, Space, Spin, Typography } from "antd";
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Empty,
+  Row,
+  Space,
+  Spin,
+  Typography,
+} from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import { fetchRunImageBlob } from "../api/compare";
 import ApproachColumn from "../components/compare/ApproachColumn";
+import GroundTruthDrawer from "../components/compare/GroundTruthDrawer";
 import RecommendedBanner from "../components/compare/RecommendedBanner";
 import TimingBar from "../components/compare/TimingBar";
 import { loadDocumentTypes } from "../features/documentTypes/documentTypesSlice";
-import {
-  clearDetail,
-  loadRunDetail,
-} from "../features/runs/runsSlice";
+import { clearDetail, loadRunDetail } from "../features/runs/runsSlice";
 
 const { Title } = Typography;
 
@@ -64,6 +72,11 @@ function computeAgreements(schemaFields, byApproach) {
   return output;
 }
 
+function mapFieldScores(metrics, approach) {
+  const scores = metrics?.perApproach?.[approach]?.fields || [];
+  return Object.fromEntries(scores.map((field) => [field.key, field]));
+}
+
 export default function RunDetailPage() {
   const { id } = useParams();
   const dispatch = useDispatch();
@@ -71,6 +84,7 @@ export default function RunDetailPage() {
   const { detail, detailStatus, detailError } = useSelector((state) => state.runs);
   const { items: documentTypes } = useSelector((state) => state.documentTypes);
   const [imageUrl, setImageUrl] = useState(null);
+  const [groundTruthOpen, setGroundTruthOpen] = useState(false);
 
   useEffect(() => {
     dispatch(loadDocumentTypes());
@@ -148,6 +162,13 @@ export default function RunDetailPage() {
     hybrid: detail?.artifacts?.hybrid || null,
   };
   const agreements = computeAgreements(schema.fields, byApproach);
+  const metrics = detail?.artifacts?.metrics || null;
+  const groundTruth = detail?.artifacts?.groundTruth || null;
+  const fieldScores = {
+    classical: mapFieldScores(metrics, "classical"),
+    vlm: mapFieldScores(metrics, "vlm"),
+    hybrid: mapFieldScores(metrics, "hybrid"),
+  };
 
   return (
     <div>
@@ -159,6 +180,19 @@ export default function RunDetailPage() {
           Run #{detail.run.id} - {detail.run.filename}
         </Title>
       </Space>
+
+      <Space style={{ marginBottom: 16 }}>
+        <Button onClick={() => setGroundTruthOpen(true)}>
+          {groundTruth ? "Edit ground truth" : "Add ground truth"}
+        </Button>
+      </Space>
+
+      <GroundTruthDrawer
+        open={groundTruthOpen}
+        onClose={() => setGroundTruthOpen(false)}
+        runId={detail.run.id}
+        initialGt={groundTruth}
+      />
 
       <RecommendedBanner recommended={detail.run.recommended} />
       <TimingBar timings={detail.run.timings} />
@@ -202,6 +236,8 @@ export default function RunDetailPage() {
             agreements={agreements}
             schemaFields={schema.fields}
             schemaArrays={schema.arrays}
+            score={metrics?.summary?.classical ?? null}
+            fieldScoresByKey={fieldScores.classical}
           />
         </Col>
 
@@ -213,6 +249,8 @@ export default function RunDetailPage() {
             agreements={agreements}
             schemaFields={schema.fields}
             schemaArrays={schema.arrays}
+            score={metrics?.summary?.vlm ?? null}
+            fieldScoresByKey={fieldScores.vlm}
           />
         </Col>
 
@@ -224,6 +262,8 @@ export default function RunDetailPage() {
             agreements={agreements}
             schemaFields={schema.fields}
             schemaArrays={schema.arrays}
+            score={metrics?.summary?.hybrid ?? null}
+            fieldScoresByKey={fieldScores.hybrid}
           />
         </Col>
       </Row>

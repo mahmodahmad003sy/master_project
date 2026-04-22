@@ -1,5 +1,11 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { deleteRunApi, fetchRun, listRunsApi } from "../../api/compare";
+import {
+  deleteGroundTruthApi,
+  deleteRunApi,
+  fetchRun,
+  listRunsApi,
+  putGroundTruthApi,
+} from "../../api/compare";
 
 export const loadRuns = createAsyncThunk(
   "runs/load",
@@ -46,6 +52,38 @@ export const deleteRun = createAsyncThunk(
     try {
       await deleteRunApi(id);
       return id;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          error.message
+      );
+    }
+  }
+);
+
+export const saveGroundTruth = createAsyncThunk(
+  "runs/saveGroundTruth",
+  async ({ id, groundTruth }, { rejectWithValue }) => {
+    try {
+      const { data } = await putGroundTruthApi(id, groundTruth);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          error.message
+      );
+    }
+  }
+);
+
+export const clearGroundTruth = createAsyncThunk(
+  "runs/clearGroundTruth",
+  async (id, { rejectWithValue }) => {
+    try {
+      const { data } = await deleteGroundTruthApi(id);
+      return data.run;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.error ||
@@ -121,6 +159,30 @@ const runsSlice = createSlice({
       .addCase(deleteRun.fulfilled, (state, action) => {
         state.items = state.items.filter((item) => item.id !== action.payload);
         state.total = Math.max(0, state.total - 1);
+      })
+      .addCase(saveGroundTruth.fulfilled, (state, action) => {
+        if (state.detail && state.detail.run.id === action.payload.run.id) {
+          state.detail.run = action.payload.run;
+          state.detail.artifacts.groundTruth = action.payload.groundTruth;
+          state.detail.artifacts.metrics = action.payload.metrics;
+        }
+
+        const index = state.items.findIndex((item) => item.id === action.payload.run.id);
+        if (index >= 0) {
+          state.items[index] = action.payload.run;
+        }
+      })
+      .addCase(clearGroundTruth.fulfilled, (state, action) => {
+        if (state.detail && state.detail.run.id === action.payload.id) {
+          state.detail.run = action.payload;
+          state.detail.artifacts.groundTruth = null;
+          state.detail.artifacts.metrics = null;
+        }
+
+        const index = state.items.findIndex((item) => item.id === action.payload.id);
+        if (index >= 0) {
+          state.items[index] = action.payload;
+        }
       });
   },
 });

@@ -1,6 +1,15 @@
 import React from "react";
-import { Card, Descriptions, Divider, Empty, Statistic, Table, Typography } from "antd";
+import {
+  Card,
+  Descriptions,
+  Divider,
+  Empty,
+  Statistic,
+  Table,
+  Typography,
+} from "antd";
 import FieldCell from "./FieldCell";
+import ScoreBadge from "./ScoreBadge";
 
 const { Text } = Typography;
 
@@ -36,10 +45,20 @@ export default function ApproachColumn({
   agreements,
   schemaFields,
   schemaArrays,
+  score = null,
+  fieldScoresByKey = null,
 }) {
   if (!data) {
     return (
-      <Card title={title} size="small" style={{ height: "100%" }}>
+      <Card
+        title={
+          <span>
+            {title} <ScoreBadge score={score} />
+          </span>
+        }
+        size="small"
+        style={{ height: "100%" }}
+      >
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={<Text type="secondary">No result</Text>}
@@ -52,8 +71,18 @@ export default function ApproachColumn({
   const confidence = getConfidence(data);
 
   return (
-    <Card title={title} size="small" style={{ height: "100%" }}>
-      <div style={{ display: "flex", gap: 16, marginBottom: 12, flexWrap: "wrap" }}>
+    <Card
+      title={
+        <span>
+          {title} <ScoreBadge score={score} />
+        </span>
+      }
+      size="small"
+      style={{ height: "100%" }}
+    >
+      <div
+        style={{ display: "flex", gap: 16, marginBottom: 12, flexWrap: "wrap" }}
+      >
         {confidence != null ? (
           <Statistic title="Confidence" value={confidence} precision={3} />
         ) : null}
@@ -63,7 +92,11 @@ export default function ApproachColumn({
       <Descriptions size="small" column={1} bordered>
         {schemaFields.map((field) => (
           <Descriptions.Item key={field.key} label={field.label || field.key}>
-            <FieldCell value={fields[field.key]} agreement={agreements[field.key]} />
+            <FieldCell
+              value={fields[field.key]}
+              agreement={agreements[field.key]}
+              fieldScore={fieldScoresByKey?.[field.key]}
+            />
           </Descriptions.Item>
         ))}
       </Descriptions>

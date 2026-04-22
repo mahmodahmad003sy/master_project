@@ -1,12 +1,16 @@
 import fs from "fs";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { SelectQueryBuilder } from "typeorm";
 import { ComparisonRun } from "../entities/ComparisonRun";
+import { DocumentType } from "../entities/DocumentType";
+import { Schema, scoreRun } from "../services/metrics";
 import {
   ArtifactName,
   artifactPath,
   imagePath,
+  readJson,
   removeRunDir,
+  writeJson,
 } from "../services/runStorage";
 import { AuthRequest } from "../utils/authMiddleware";
 import { loadRunArtifacts, runCompare } from "./compareController";
@@ -77,6 +81,43 @@ async function findRunForUser(id: number, userId?: number) {
   }
 
   return run;
+}
+
+async function recomputeAndPersistMetrics(runId: number) {
+  const run = await ComparisonRun.findOneBy({ id: runId });
+  if (!run) {
+    return;
+  }
+
+  const groundTruth = await readJson(artifactPath(runId, "ground_truth"));
+  if (!groundTruth) {
+    run.hasGroundTruth = false;
+    run.summary = null;
+    await run.save();
+    return;
+  }
+
+  const documentType = await DocumentType.findOneBy({ key: run.documentType });
+  if (!documentType) {
+    return;
+  }
+
+  const [classical, vlm, hybrid] = await Promise.all([
+    readJson(artifactPath(runId, "classical")),
+    readJson(artifactPath(runId, "vlm")),
+    readJson(artifactPath(runId, "hybrid")),
+  ]);
+
+  const metrics = scoreRun(
+    { classical, vlm, hybrid },
+    groundTruth,
+    documentType.schema as unknown as Schema
+  );
+
+  await writeJson(artifactPath(runId, "metrics"), metrics);
+  run.hasGroundTruth = true;
+  run.summary = metrics.summary;
+  await run.save();
 }
 
 export const postCompare = async (req: AuthRequest, res: Response) => {
@@ -164,6 +205,51 @@ export const deleteRun = async (req: AuthRequest, res: Response) => {
   await removeRunDir(id);
   await run.remove();
   res.status(204).send();
+};
+
+export const putGroundTruth = async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  const run = await findRunForUser(id, req.userId);
+
+  if (!run) {
+    return res.status(404).json({ error: "Not found" });
+  }
+
+  if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+    return res.status(400).json({ error: "Body must be a JSON object" });
+  }
+
+  await writeJson(artifactPath(id, "ground_truth"), req.body);
+  await recomputeAndPersistMetrics(id);
+
+  const updatedRun = await ComparisonRun.findOneBy({ id });
+  const [groundTruth, metrics] = await Promise.all([
+    readJson(artifactPath(id, "ground_truth")),
+    readJson(artifactPath(id, "metrics")),
+  ]);
+
+  res.json({ run: updatedRun, groundTruth, metrics });
+};
+
+export const deleteGroundTruth = async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  const run = await findRunForUser(id, req.userId);
+
+  if (!run) {
+    return res.status(404).json({ error: "Not found" });
+  }
+
+  for (const name of ["ground_truth", "metrics"] as const) {
+    const filePath = artifactPath(id, name);
+    if (fs.existsSync(filePath)) {
+      await fs.promises.unlink(filePath);
+    }
+  }
+
+  run.hasGroundTruth = false;
+  run.summary = null;
+  await run.save();
+  res.json({ run });
 };
 
 export const getArtifact = async (req: AuthRequest, res: Response) => {

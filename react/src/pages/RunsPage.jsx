@@ -31,6 +31,10 @@ import {
 
 const { RangePicker } = DatePicker;
 
+function formatSummaryScore(score) {
+  return `${Math.round(score * 100)}%`;
+}
+
 export default function RunsPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -183,26 +187,45 @@ export default function RunsPage() {
       render: (value) => <Tag>{value}</Tag>,
     },
     {
+      title: "Best",
+      key: "best",
+      width: 140,
+      render: (_, record) => {
+        if (!record.summary) {
+          return "-";
+        }
+
+        const best = Object.entries(record.summary).reduce((current, entry) =>
+          entry[1] > current[1] ? entry : current
+        );
+        return (
+          <Tag color="geekblue">
+            {best[0]} · {formatSummaryScore(best[1])}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: "Scores",
+      key: "summary",
+      width: 220,
+      render: (_, record) =>
+        !record.summary ? (
+          "-"
+        ) : (
+          <Space size={4}>
+            <Tag color="blue">C {formatSummaryScore(record.summary.classical)}</Tag>
+            <Tag color="orange">V {formatSummaryScore(record.summary.vlm)}</Tag>
+            <Tag color="green">H {formatSummaryScore(record.summary.hybrid)}</Tag>
+          </Space>
+        ),
+    },
+    {
       title: "Recommended",
       dataIndex: "recommended",
       width: 140,
       render: (value) =>
         value ? <Tag color="green">{value}</Tag> : <Tag bordered={false}>-</Tag>,
-    },
-    {
-      title: "Timings (ms)",
-      dataIndex: "timings",
-      width: 220,
-      render: (timings) =>
-        timings ? (
-          <Space size={4}>
-            <Tag color="blue">C {timings.classical}</Tag>
-            <Tag color="orange">V {timings.vlm}</Tag>
-            <Tag color="green">H {timings.hybrid}</Tag>
-          </Space>
-        ) : (
-          "-"
-        ),
     },
     {
       title: "GT",
