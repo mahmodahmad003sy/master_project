@@ -1,0 +1,20 @@
+{
+  "server": {
+    "port": 3000
+  },
+  "auth": {
+    "jwtSecret": "my_strong_secrete"
+  },
+  "MODELS_BASE_PATH": "D:/Master/service/api/tmp",
+  "DETECTION_SERVICE_URL": "http://localhost:8000",
+  "db": {
+    "type": "postgres",
+    "host": "localhost",
+    "port": 5432,
+    "username": "ai_service_api",
+    "password": "ai_service_api",
+    "database": "ai_service_api",
+    "synchronize": true,
+    "logging": false
+  }
+}
