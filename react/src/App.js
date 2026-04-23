@@ -14,6 +14,7 @@ import { logout } from "./features/auth/authSlice";
 import ComparePage from "./pages/ComparePage";
 import BenchmarkDetailPage from "./pages/BenchmarkDetailPage";
 import BenchmarksPage from "./pages/BenchmarksPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import LoginPage from "./pages/LoginPage";
 import ModelsPage from "./pages/ModelsPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -37,6 +38,8 @@ export default function App() {
     ? "/runs"
     : pathname.startsWith("/benchmarks/")
       ? "/benchmarks"
+    : pathname.startsWith("/analytics/")
+      ? "/analytics"
     : pathname;
 
   return (
@@ -56,6 +59,9 @@ export default function App() {
           </Menu.Item>
           <Menu.Item key="/benchmarks">
             <Link to="/benchmarks">Benchmarks</Link>
+          </Menu.Item>
+          <Menu.Item key="/analytics">
+            <Link to="/analytics">Analytics</Link>
           </Menu.Item>
           <Menu.Item key="/models">
             <Link to="/models">Models</Link>
@@ -87,6 +93,7 @@ export default function App() {
                     path="/benchmarks/:id"
                     element={<BenchmarkDetailPage />}
                   />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/models" element={<ModelsPage />} />
                   <Route path="/" element={<Navigate to="/compare" replace />} />
                   <Route path="*" element={<Navigate to="/compare" replace />} />
