@@ -13,9 +13,13 @@ import {
   Upload,
   message,
 } from "antd";
-import { CloudUploadOutlined, UploadOutlined } from "@ant-design/icons";
+import {
+  CloudUploadOutlined,
+  LinkOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchRunImageBlob } from "../api/compare";
+import { createShareLinkApi, runImageSrc } from "../api/compare";
 import ApproachColumn from "../components/compare/ApproachColumn";
 import GroundTruthDrawer from "../components/compare/GroundTruthDrawer";
 import RecommendedBanner from "../components/compare/RecommendedBanner";
@@ -98,7 +102,6 @@ export default function ComparePage() {
   const runsDetail = useSelector((state) => state.runs.detail);
   const [documentType, setDocumentType] = useState(null);
   const [fileList, setFileList] = useState([]);
-  const [imageUrl, setImageUrl] = useState(null);
   const [groundTruthOpen, setGroundTruthOpen] = useState(false);
 
   useEffect(() => {
@@ -124,48 +127,6 @@ export default function ComparePage() {
     [dispatch]
   );
 
-  useEffect(() => {
-    if (!comparisonState.currentRunId || comparisonState.status !== "ok") {
-      setImageUrl((current) => {
-        if (current) {
-          URL.revokeObjectURL(current);
-        }
-        return null;
-      });
-      return undefined;
-    }
-
-    let active = true;
-    let objectUrl = null;
-
-    fetchRunImageBlob(comparisonState.currentRunId)
-      .then(({ data }) => {
-        if (!active) {
-          return;
-        }
-
-        objectUrl = URL.createObjectURL(data);
-        setImageUrl((current) => {
-          if (current) {
-            URL.revokeObjectURL(current);
-          }
-          return objectUrl;
-        });
-      })
-      .catch(() => {
-        if (active) {
-          setImageUrl(null);
-        }
-      });
-
-    return () => {
-      active = false;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [comparisonState.currentRunId, comparisonState.status]);
-
   const schema = getSchemaFor(documentTypesState.items, documentType);
   const byApproach = {
     classical: comparisonState.response?.main || null,
@@ -186,6 +147,10 @@ export default function ComparePage() {
     }),
     [metrics]
   );
+  const imageSrc =
+    comparisonState.currentRunId && comparisonState.status === "ok"
+      ? runImageSrc(comparisonState.currentRunId)
+      : null;
 
   const handleRun = () => {
     if (!documentType) {
@@ -207,12 +172,26 @@ export default function ComparePage() {
     dispatch(clearDetail());
     setFileList([]);
     setGroundTruthOpen(false);
-    setImageUrl((current) => {
-      if (current) {
-        URL.revokeObjectURL(current);
-      }
-      return null;
-    });
+  };
+
+  const handleShare = async () => {
+    if (!comparisonState.currentRunId) {
+      return;
+    }
+
+    try {
+      const { data } = await createShareLinkApi(comparisonState.currentRunId, 72);
+      await navigator.clipboard.writeText(
+        `${window.location.origin}${data.url}`
+      );
+      message.success("Share link copied");
+    } catch (error) {
+      message.error(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          error.message
+      );
+    }
   };
 
   return (
@@ -262,6 +241,14 @@ export default function ComparePage() {
             disabled={!comparisonState.currentRunId}
           >
             {groundTruth ? "Edit ground truth" : "Add ground truth"}
+          </Button>
+
+          <Button
+            icon={<LinkOutlined />}
+            onClick={handleShare}
+            disabled={!comparisonState.currentRunId}
+          >
+            Share
           </Button>
 
           <Button
@@ -317,10 +304,10 @@ export default function ComparePage() {
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={6}>
               <Card title="Image" size="small" style={{ height: "100%" }}>
-                {imageUrl ? (
+                {imageSrc ? (
                   <img
                     alt={comparisonState.run?.filename || "uploaded document"}
-                    src={imageUrl}
+                    src={imageSrc}
                     style={{
                       width: "100%",
                       borderRadius: 8,

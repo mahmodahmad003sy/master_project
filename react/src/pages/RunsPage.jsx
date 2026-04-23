@@ -20,7 +20,7 @@ import {
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { fetchRunImageBlob } from "../api/compare";
+import { runImageSrc } from "../api/compare";
 import { loadDocumentTypes } from "../features/documentTypes/documentTypesSlice";
 import {
   deleteRun,
@@ -47,7 +47,6 @@ export default function RunsPage() {
   const [documentType, setDocumentType] = useState(filters.documentType);
   const [hasGroundTruth, setHasGroundTruth] = useState(filters.hasGroundTruth);
   const [dateRange, setDateRange] = useState([null, null]);
-  const [thumbs, setThumbs] = useState({});
 
   useEffect(() => {
     dispatch(loadDocumentTypes());
@@ -56,44 +55,6 @@ export default function RunsPage() {
   useEffect(() => {
     dispatch(loadRuns());
   }, [dispatch, filters, pagination]);
-
-  useEffect(() => {
-    let active = true;
-    const activeUrls = [];
-
-    Promise.all(
-      items.map(async (item) => {
-        try {
-          const { data } = await fetchRunImageBlob(item.id);
-          const url = URL.createObjectURL(data);
-          activeUrls.push(url);
-          return [item.id, url];
-        } catch {
-          return [item.id, null];
-        }
-      })
-    ).then((entries) => {
-      if (!active) {
-        activeUrls.forEach((url) => URL.revokeObjectURL(url));
-        return;
-      }
-
-      setThumbs((current) => {
-        Object.values(current).forEach((url) => {
-          if (url) {
-            URL.revokeObjectURL(url);
-          }
-        });
-
-        return Object.fromEntries(entries);
-      });
-    });
-
-    return () => {
-      active = false;
-      activeUrls.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [items]);
 
   const applyFilters = () => {
     dispatch(
@@ -140,9 +101,9 @@ export default function RunsPage() {
       dataIndex: "id",
       width: 84,
       render: (id, record) =>
-        thumbs[id] ? (
+        id ? (
           <img
-            src={thumbs[id]}
+            src={runImageSrc(id)}
             alt={record.filename}
             style={{
               width: 56,

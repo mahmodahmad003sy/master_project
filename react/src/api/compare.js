@@ -1,3 +1,4 @@
+import axios from "axios";
 import client, { API_BASE_URL } from "./client";
 
 export const fetchDocumentTypes = () => client.get("/document-types");
@@ -23,6 +24,9 @@ export const listRunsApi = (params = {}) => client.get("/runs", { params });
 
 export const deleteRunApi = (id) => client.delete(`/runs/${id}`);
 
+export const createShareLinkApi = (id, ttl = 72) =>
+  client.post(`/runs/${id}/share`, null, { params: { ttl } });
+
 export const putGroundTruthApi = (id, groundTruth) =>
   client.put(`/runs/${id}/ground-truth`, groundTruth);
 
@@ -33,3 +37,16 @@ export const fetchRunImageBlob = (id) =>
   client.get(`/runs/${id}/image`, { responseType: "blob" });
 
 export const runImageUrl = (id) => `${API_BASE_URL}/runs/${id}/image`;
+
+export const runImageSrc = (id) => {
+  const token = localStorage.getItem("token") || "";
+  return `${API_BASE_URL}/runs/${id}/image?token=${encodeURIComponent(token)}`;
+};
+
+export const fetchPublicRunApi = (id, token) =>
+  axios.get(`${API_BASE_URL}/public/runs/${id}`, {
+    params: { token },
+  });
+
+export const publicRunImageSrc = (id, token) =>
+  `${API_BASE_URL}/public/runs/${id}/image?token=${encodeURIComponent(token || "")}`;

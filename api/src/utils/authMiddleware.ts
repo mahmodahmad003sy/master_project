@@ -14,11 +14,21 @@ export const requireAuth = (
   res: Response,
   next: NextFunction
 ) => {
-  const header = req.headers.authorization;
-  if (!header?.startsWith("Bearer ")) {
+  const headerToken = req.headers.authorization?.startsWith("Bearer ")
+    ? req.headers.authorization.slice(7)
+    : "";
+  const queryToken =
+    req.method === "GET" &&
+    /^\/api\/runs\/\d+\/image$/.test(req.originalUrl.split("?")[0]) &&
+    typeof req.query.token === "string"
+      ? req.query.token
+      : "";
+  const token = headerToken || queryToken;
+
+  if (!token) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const token = header.slice(7);
+
   try {
     const payload: any = jwt.verify(token, JWT_SECRET);
     if (!payload.userId) return res.status(401).json({ error: "Unauthorized" });

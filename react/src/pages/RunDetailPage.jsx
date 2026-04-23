@@ -8,12 +8,13 @@ import {
   Row,
   Space,
   Spin,
+  message,
   Typography,
 } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, LinkOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
-import { fetchRunImageBlob } from "../api/compare";
+import { createShareLinkApi, runImageSrc } from "../api/compare";
 import ApproachColumn from "../components/compare/ApproachColumn";
 import GroundTruthDrawer from "../components/compare/GroundTruthDrawer";
 import RecommendedBanner from "../components/compare/RecommendedBanner";
@@ -83,7 +84,6 @@ export default function RunDetailPage() {
   const navigate = useNavigate();
   const { detail, detailStatus, detailError } = useSelector((state) => state.runs);
   const { items: documentTypes } = useSelector((state) => state.documentTypes);
-  const [imageUrl, setImageUrl] = useState(null);
   const [groundTruthOpen, setGroundTruthOpen] = useState(false);
 
   useEffect(() => {
@@ -94,48 +94,6 @@ export default function RunDetailPage() {
       dispatch(clearDetail());
     };
   }, [dispatch, id]);
-
-  useEffect(() => {
-    if (!detail?.run?.id) {
-      setImageUrl((current) => {
-        if (current) {
-          URL.revokeObjectURL(current);
-        }
-        return null;
-      });
-      return undefined;
-    }
-
-    let active = true;
-    let objectUrl = null;
-
-    fetchRunImageBlob(detail.run.id)
-      .then(({ data }) => {
-        if (!active) {
-          return;
-        }
-
-        objectUrl = URL.createObjectURL(data);
-        setImageUrl((current) => {
-          if (current) {
-            URL.revokeObjectURL(current);
-          }
-          return objectUrl;
-        });
-      })
-      .catch(() => {
-        if (active) {
-          setImageUrl(null);
-        }
-      });
-
-    return () => {
-      active = false;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [detail]);
 
   const schema = useMemo(() => {
     if (!detail) {
@@ -169,6 +127,23 @@ export default function RunDetailPage() {
     vlm: mapFieldScores(metrics, "vlm"),
     hybrid: mapFieldScores(metrics, "hybrid"),
   };
+  const imageSrc = detail?.run?.id ? runImageSrc(detail.run.id) : null;
+
+  const handleShare = async () => {
+    try {
+      const { data } = await createShareLinkApi(detail.run.id, 72);
+      await navigator.clipboard.writeText(
+        `${window.location.origin}${data.url}`
+      );
+      message.success("Share link copied");
+    } catch (error) {
+      message.error(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          error.message
+      );
+    }
+  };
 
   return (
     <div>
@@ -185,6 +160,9 @@ export default function RunDetailPage() {
         <Button onClick={() => setGroundTruthOpen(true)}>
           {groundTruth ? "Edit ground truth" : "Add ground truth"}
         </Button>
+        <Button icon={<LinkOutlined />} onClick={handleShare}>
+          Share
+        </Button>
       </Space>
 
       <GroundTruthDrawer
@@ -200,10 +178,10 @@ export default function RunDetailPage() {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={6}>
           <Card title="Image" size="small" style={{ height: "100%" }}>
-            {imageUrl ? (
+            {imageSrc ? (
               <img
                 alt={detail.run.filename}
-                src={imageUrl}
+                src={imageSrc}
                 style={{
                   width: "100%",
                   borderRadius: 8,

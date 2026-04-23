@@ -12,6 +12,7 @@ import {
   removeRunDir,
   writeJson,
 } from "../services/runStorage";
+import { signShareToken, verifyShareToken } from "../utils/shareToken";
 import { AuthRequest } from "../utils/authMiddleware";
 import { loadRunArtifacts, runCompare } from "./compareController";
 
@@ -81,6 +82,10 @@ async function findRunForUser(id: number, userId?: number) {
   }
 
   return run;
+}
+
+async function findRunById(id: number) {
+  return ComparisonRun.findOneBy({ id });
 }
 
 async function recomputeAndPersistMetrics(runId: number) {
@@ -194,6 +199,25 @@ export const getRun = async (req: AuthRequest, res: Response) => {
   res.json({ run, artifacts });
 };
 
+export const createShareLink = async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  const run = await findRunForUser(id, req.userId);
+
+  if (!run) {
+    return res.status(404).json({ error: "Not found" });
+  }
+
+  const rawTtl = Number(req.query.ttl ?? 24);
+  const ttl = Number.isFinite(rawTtl) && rawTtl > 0 ? Math.min(rawTtl, 24 * 30) : 24;
+  const token = signShareToken(id, ttl);
+
+  res.json({
+    token,
+    url: `/demo/${id}?token=${encodeURIComponent(token)}`,
+    expiresInHours: ttl,
+  });
+};
+
 export const deleteRun = async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
   const run = await findRunForUser(id, req.userId);
@@ -279,6 +303,54 @@ export const getRunImage = async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
   const run = await findRunForUser(id, req.userId);
 
+  if (!run) {
+    return res.status(404).json({ error: "Not found" });
+  }
+
+  const filePath = imagePath(id, run.imageName);
+  try {
+    await fs.promises.access(filePath);
+  } catch {
+    return res.status(404).json({ error: "Not found" });
+  }
+
+  res.sendFile(filePath);
+};
+
+export const getPublicRun = async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const token = typeof req.query.token === "string" ? req.query.token : "";
+
+  if (!verifyShareToken(token, id)) {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+
+  const run = await findRunById(id);
+  if (!run) {
+    return res.status(404).json({ error: "Not found" });
+  }
+
+  const [artifacts, documentType] = await Promise.all([
+    loadRunArtifacts(id),
+    DocumentType.findOneBy({ key: run.documentType }),
+  ]);
+
+  res.json({
+    run,
+    artifacts,
+    documentType,
+  });
+};
+
+export const getPublicImage = async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const token = typeof req.query.token === "string" ? req.query.token : "";
+
+  if (!verifyShareToken(token, id)) {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+
+  const run = await findRunById(id);
   if (!run) {
     return res.status(404).json({ error: "Not found" });
   }

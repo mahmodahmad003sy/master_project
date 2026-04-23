@@ -1,6 +1,7 @@
 import React from "react";
 import {
   Card,
+  Collapse,
   Descriptions,
   Divider,
   Empty,
@@ -8,6 +9,8 @@ import {
   Table,
   Typography,
 } from "antd";
+import { JsonView, allExpanded, defaultStyles } from "react-json-view-lite";
+import "react-json-view-lite/dist/index.css";
 import FieldCell from "./FieldCell";
 import ScoreBadge from "./ScoreBadge";
 
@@ -125,6 +128,27 @@ export default function ApproachColumn({
           </div>
         );
       })}
+
+      <div style={{ marginTop: 16 }}>
+        <Collapse
+          size="small"
+          items={[
+            {
+              key: "raw-json",
+              label: "Raw JSON",
+              children: (
+                <div style={{ overflowX: "auto" }}>
+                  <JsonView
+                    data={data}
+                    shouldExpandNode={allExpanded}
+                    style={defaultStyles}
+                  />
+                </div>
+              ),
+            },
+          ]}
+        />
+      </div>
     </Card>
   );
 }
