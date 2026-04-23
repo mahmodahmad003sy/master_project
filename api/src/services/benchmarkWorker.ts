@@ -50,7 +50,10 @@ function percentile(values: number[], p: number): number | null {
   }
 
   const sorted = [...values].sort((a, b) => a - b);
-  const index = Math.min(sorted.length - 1, Math.floor(p * (sorted.length - 1)));
+  const index = Math.min(
+    sorted.length - 1,
+    Math.floor(p * (sorted.length - 1)),
+  );
   return sorted[index];
 }
 
@@ -98,7 +101,7 @@ async function scoreBenchmarkRun(
   run: ComparisonRun,
   filename: string,
   schema: Schema,
-  gtMap: Record<string, unknown>
+  gtMap: Record<string, unknown>,
 ) {
   const groundTruth = gtMap[filename];
   if (!groundTruth) {
@@ -124,12 +127,12 @@ async function scoreBenchmarkRun(
 async function createTempCompareFile(
   benchmarkId: number,
   imagePath: string,
-  filename: string
+  filename: string,
 ): Promise<Express.Multer.File> {
   await ensureBenchmarkDir(benchmarkId);
 
   const tempName = `${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(
-    filename
+    filename,
   )}`;
   const tempPath = path.join(benchmarkTempDir(benchmarkId), tempName);
   await fs.promises.copyFile(imagePath, tempPath);
@@ -150,17 +153,20 @@ async function createTempCompareFile(
 }
 
 async function runBenchmarkItems(benchmark: Benchmark): Promise<void> {
-  const documentType = await DocumentType.findOneBy({ key: benchmark.documentType });
+  const documentType = await DocumentType.findOne({
+    key: benchmark.documentType,
+  });
   if (!documentType) {
     throw new Error(`Unknown documentType "${benchmark.documentType}"`);
   }
 
   await ensureBenchmarkDir(benchmark.id);
   const gtMap =
-    (await readJson<Record<string, unknown>>(benchmarkGtPath(benchmark.id))) ?? {};
-  const files = (await fs.promises.readdir(benchmarkImagesDir(benchmark.id))).filter((name) =>
-    /\.(jpe?g|png|webp|bmp)$/i.test(name)
-  );
+    (await readJson<Record<string, unknown>>(benchmarkGtPath(benchmark.id))) ??
+    {};
+  const files = (
+    await fs.promises.readdir(benchmarkImagesDir(benchmark.id))
+  ).filter((name) => /\.(jpe?g|png|webp|bmp)$/i.test(name));
 
   benchmark.totalItems = files.length;
   benchmark.doneItems = 0;
@@ -170,13 +176,16 @@ async function runBenchmarkItems(benchmark: Benchmark): Promise<void> {
   await benchmark.save();
 
   for (const filename of files) {
-    const sourceImagePath = path.join(benchmarkImagesDir(benchmark.id), filename);
+    const sourceImagePath = path.join(
+      benchmarkImagesDir(benchmark.id),
+      filename,
+    );
 
     try {
       const fakeFile = await createTempCompareFile(
         benchmark.id,
         sourceImagePath,
-        filename
+        filename,
       );
       const { run } = await runCompare({
         file: fakeFile,
@@ -189,7 +198,7 @@ async function runBenchmarkItems(benchmark: Benchmark): Promise<void> {
         run,
         filename,
         documentType.schema as unknown as Schema,
-        gtMap
+        gtMap,
       );
 
       benchmark.doneItems += 1;
@@ -220,9 +229,8 @@ export async function startBenchmarkWorker(benchmarkId: number): Promise<void> {
   runningBenchmarks.add(benchmarkId);
 
   try {
-    const benchmark = await Benchmark.findOne({
-      where: { id: benchmarkId },
-      relations: { user: true },
+    const benchmark = await Benchmark.findOne(benchmarkId, {
+      relations: ["user"],
     });
 
     if (!benchmark) {
@@ -231,7 +239,7 @@ export async function startBenchmarkWorker(benchmarkId: number): Promise<void> {
 
     await runBenchmarkItems(benchmark);
   } catch (error) {
-    const benchmark = await Benchmark.findOneBy({ id: benchmarkId });
+    const benchmark = await Benchmark.findOne({ id: benchmarkId });
     if (benchmark) {
       benchmark.status = "failed";
       await benchmark.save();

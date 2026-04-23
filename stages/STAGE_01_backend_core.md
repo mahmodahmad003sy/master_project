@@ -211,10 +211,15 @@ import { DocumentType } from "../entities/DocumentType";
 
 const RECEIPT_SCHEMA = {
   fields: [
-    { key: "DATE", label: "Date", type: "date", formats: ["DD.MM.YY", "DD.MM.YYYY"] },
-    { key: "FB",   label: "FB",   type: "text" },
-    { key: "FD",   label: "FD",   type: "text" },
-    { key: "SUM",  label: "Sum",  type: "money", tolerance: 0.01 },
+    {
+      key: "DATE",
+      label: "Date",
+      type: "date",
+      formats: ["DD.MM.YY", "DD.MM.YYYY"],
+    },
+    { key: "FB", label: "FB", type: "text" },
+    { key: "FD", label: "FD", type: "text" },
+    { key: "SUM", label: "Sum", type: "money", tolerance: 0.01 },
   ],
   arrays: [
     {
@@ -223,8 +228,8 @@ const RECEIPT_SCHEMA = {
       rowKey: "NAME",
       match: "hungarian",
       fields: [
-        { key: "NAME",     type: "text" },
-        { key: "PRICE",    type: "money",  tolerance: 0.01 },
+        { key: "NAME", type: "text" },
+        { key: "PRICE", type: "money", tolerance: 0.01 },
         { key: "QUANTITY", type: "number" },
       ],
     },
@@ -234,7 +239,7 @@ const RECEIPT_SCHEMA = {
 (async () => {
   await AppDataSource.initialize();
   const repo = AppDataSource.getRepository(DocumentType);
-  const existing = await repo.findOneBy({ key: "receipt" });
+  const existing = await repo.findOne({ key: "receipt" });
   if (existing) {
     existing.name = "Receipt";
     existing.schema = RECEIPT_SCHEMA;
@@ -286,7 +291,7 @@ export const listDocumentTypes = async (_req: Request, res: Response) => {
 
 export const getDocumentType = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const dt = await DocumentType.findOneBy({ id });
+  const dt = await DocumentType.findOne({ id });
   if (!dt) return res.status(404).json({ error: "Not found" });
   res.json(dt);
 };
@@ -296,7 +301,7 @@ export const createDocumentType = async (req: Request, res: Response) => {
   if (!key || !name || !schema) {
     return res.status(400).json({ error: "key, name, schema are required" });
   }
-  const exists = await DocumentType.findOneBy({ key });
+  const exists = await DocumentType.findOne({ key });
   if (exists) return res.status(409).json({ error: "key already exists" });
   const dt = DocumentType.create({ key, name, schema });
   await dt.save();
@@ -305,7 +310,7 @@ export const createDocumentType = async (req: Request, res: Response) => {
 
 export const updateDocumentType = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const dt = await DocumentType.findOneBy({ id });
+  const dt = await DocumentType.findOne({ id });
   if (!dt) return res.status(404).json({ error: "Not found" });
   const { name, schema } = req.body;
   if (name !== undefined) dt.name = name;
@@ -396,18 +401,21 @@ export async function runCompare(opts: {
   const { file, documentTypeKey, userId } = opts;
 
   // 1. Validate document type exists so we fail early.
-  const dt = await DocumentType.findOneBy({ key: documentTypeKey });
+  const dt = await DocumentType.findOne({ key: documentTypeKey });
   if (!dt) {
-    throw { statusCode: 400, message: `Unknown documentType "${documentTypeKey}"` };
+    throw {
+      statusCode: 400,
+      message: `Unknown documentType "${documentTypeKey}"`,
+    };
   }
 
   // 2. Create a DB row so we get an id (we use the id as the folder name).
-  const user = userId ? await User.findOneBy({ id: userId }) : null;
+  const user = userId ? await User.findOne({ id: userId }) : null;
   const run = ComparisonRun.create({
     user,
     filename: file.originalname,
-    storageDir: "tbd",   // filled below
-    imageName: "tbd",    // filled below
+    storageDir: "tbd", // filled below
+    imageName: "tbd", // filled below
     imageW: null,
     imageH: null,
     device: null,
@@ -450,14 +458,20 @@ export async function runCompare(opts: {
       error: err?.message ?? "compare service unreachable",
     });
     await run.save();
-    throw { statusCode: 502, message: "Compare service failed: " + (err?.message ?? err) };
+    throw {
+      statusCode: 502,
+      message: "Compare service failed: " + (err?.message ?? err),
+    };
   }
 
   // 5. Persist all artifacts to disk (heavy JSON — never in DB).
   await writeJson(artifactPath(run.id, "raw_response"), response);
-  if (response?.main)   await writeJson(artifactPath(run.id, "classical"), response.main);
-  if (response?.qwen)   await writeJson(artifactPath(run.id, "vlm"),       response.qwen);
-  if (response?.hybrid) await writeJson(artifactPath(run.id, "hybrid"),    response.hybrid);
+  if (response?.main)
+    await writeJson(artifactPath(run.id, "classical"), response.main);
+  if (response?.qwen)
+    await writeJson(artifactPath(run.id, "vlm"), response.qwen);
+  if (response?.hybrid)
+    await writeJson(artifactPath(run.id, "hybrid"), response.hybrid);
 
   // 6. Copy tiny metadata onto the DB row.
   const meta = response?.run_meta ?? {};
@@ -467,8 +481,8 @@ export async function runCompare(opts: {
   run.timings = meta.timings_ms
     ? {
         classical: Number(meta.timings_ms.main ?? 0),
-        vlm:       Number(meta.timings_ms.qwen ?? 0),
-        hybrid:    Number(meta.timings_ms.hybrid ?? 0),
+        vlm: Number(meta.timings_ms.qwen ?? 0),
+        hybrid: Number(meta.timings_ms.hybrid ?? 0),
       }
     : null;
   run.recommended = response?.recommended_for_production ?? null;
@@ -479,19 +493,22 @@ export async function runCompare(opts: {
 
 /** Load a run's artifacts from disk, returning null for missing ones. */
 export async function loadRunArtifacts(runId: number) {
-  const [raw, classical, vlm, hybrid, groundTruth, metrics] = await Promise.all([
-    readJson(artifactPath(runId, "raw_response")),
-    readJson(artifactPath(runId, "classical")),
-    readJson(artifactPath(runId, "vlm")),
-    readJson(artifactPath(runId, "hybrid")),
-    readJson(artifactPath(runId, "ground_truth")),
-    readJson(artifactPath(runId, "metrics")),
-  ]);
+  const [raw, classical, vlm, hybrid, groundTruth, metrics] = await Promise.all(
+    [
+      readJson(artifactPath(runId, "raw_response")),
+      readJson(artifactPath(runId, "classical")),
+      readJson(artifactPath(runId, "vlm")),
+      readJson(artifactPath(runId, "hybrid")),
+      readJson(artifactPath(runId, "ground_truth")),
+      readJson(artifactPath(runId, "metrics")),
+    ],
+  );
   return { raw, classical, vlm, hybrid, groundTruth, metrics };
 }
 ```
 
 **Beginner notes:**
+
 - Step 2 saves the row **before** we have the artifacts so the `id` can
   drive the folder name (`<id>/`).
 - Step 3 uses `fs.rename` to move the multer‑uploaded temp file into the run
@@ -515,17 +532,14 @@ import path from "path";
 import { Request, Response } from "express";
 import { Like, Between, MoreThanOrEqual, LessThanOrEqual } from "typeorm";
 import { ComparisonRun } from "../entities/ComparisonRun";
-import {
-  artifactPath,
-  imagePath,
-  removeRunDir,
-} from "../services/runStorage";
+import { artifactPath, imagePath, removeRunDir } from "../services/runStorage";
 import { loadRunArtifacts, runCompare } from "./compareController";
 import { AuthRequest } from "../utils/authMiddleware";
 
 export const postCompare = async (req: AuthRequest, res: Response) => {
   if (!req.file) throw { statusCode: 400, message: "No file uploaded" };
-  const documentType = (req.body.documentType || req.query.documentType) as string;
+  const documentType = (req.body.documentType ||
+    req.query.documentType) as string;
   if (!documentType) {
     throw { statusCode: 400, message: "documentType is required" };
   }
@@ -561,7 +575,7 @@ export const listRuns = async (req: Request, res: Response) => {
 
 export const getRun = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const run = await ComparisonRun.findOneBy({ id });
+  const run = await ComparisonRun.findOne({ id });
   if (!run) return res.status(404).json({ error: "Not found" });
   const artifacts = await loadRunArtifacts(id);
   res.json({ run, artifacts });
@@ -569,7 +583,7 @@ export const getRun = async (req: Request, res: Response) => {
 
 export const deleteRun = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const run = await ComparisonRun.findOneBy({ id });
+  const run = await ComparisonRun.findOne({ id });
   if (!run) return res.status(404).send();
   await removeRunDir(id);
   await run.remove();
@@ -598,7 +612,7 @@ export const getArtifact = async (req: Request, res: Response) => {
 /** Stream the original uploaded image of a run. */
 export const getRunImage = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const run = await ComparisonRun.findOneBy({ id });
+  const run = await ComparisonRun.findOne({ id });
   if (!run) return res.status(404).send();
   const file = imagePath(id, run.imageName);
   if (!fs.existsSync(file)) return res.status(404).send();
@@ -649,7 +663,7 @@ Add below the existing `router.use(...)` calls, **before** the 404 handler:
 ```ts
 import runsRouter from "./runs";
 // ...
-router.use(requireAuth, runsRouter);   // everything in runs.ts is JWT‑protected
+router.use(requireAuth, runsRouter); // everything in runs.ts is JWT‑protected
 ```
 
 **Important:** remove or comment out the old detection mount

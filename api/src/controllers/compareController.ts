@@ -15,7 +15,7 @@ import {
 } from "../services/runStorage";
 
 const COMPARE_BASE_URL = String(
-  (config as { COMPARE_SERVICE_URL?: string }).COMPARE_SERVICE_URL ?? ""
+  (config as { COMPARE_SERVICE_URL?: string }).COMPARE_SERVICE_URL ?? "",
 );
 const COMPARE_URL = `${COMPARE_BASE_URL.replace(/\/+$/, "")}/compare`;
 
@@ -34,11 +34,7 @@ function extractTimings(response: any): Record<string, number> | null {
   const vlm = Number(raw.qwen ?? raw.vlm ?? 0);
   const hybrid = Number(raw.hybrid ?? 0);
 
-  if (
-    Number.isNaN(classical) &&
-    Number.isNaN(vlm) &&
-    Number.isNaN(hybrid)
-  ) {
+  if (Number.isNaN(classical) && Number.isNaN(vlm) && Number.isNaN(hybrid)) {
     return null;
   }
 
@@ -109,7 +105,11 @@ export async function runCompare(opts: {
   await fs.promises.rename(file.path, destinationImagePath);
 
   const form = new FormData();
-  form.append("file", fs.createReadStream(destinationImagePath), file.originalname);
+  form.append(
+    "file",
+    fs.createReadStream(destinationImagePath),
+    file.originalname,
+  );
 
   let response: any;
   try {
@@ -173,7 +173,7 @@ export async function loadRunArtifacts(runId: number) {
       readJson(artifactPath(runId, "hybrid")),
       readJson(artifactPath(runId, "ground_truth")),
       readJson(artifactPath(runId, "metrics")),
-    ]
+    ],
   );
 
   return { raw, classical, vlm, hybrid, groundTruth, metrics };

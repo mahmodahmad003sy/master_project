@@ -19,15 +19,21 @@
     "reflect-metadata": "^0.2.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "typeorm": "^0.3.25",
-    "typescript": "^5.9.3"
+    "typeorm": "^0.2.41"
   },
   "scripts": {
-    "start": "nodemon src/app.ts"
+    "start": "npx nodemon --exec npx ts-node src/app.ts",
+    "test": "jest --runInBand",
+    "test:watch": "jest --watch",
+    "tsc": "tsc"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
-    "nodemon": "^3.1.10",
-    "ts-node": "^10.9.2"
+    "@types/jest": "^30.0.0",
+    "jest": "^30.3.0",
+    "nodemon": "^3.1.14",
+    "ts-jest": "^29.4.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
   }
 }

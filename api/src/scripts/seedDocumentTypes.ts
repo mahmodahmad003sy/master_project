@@ -32,7 +32,7 @@ const RECEIPT_SCHEMA = {
 async function main() {
   await AppDataSource.initialize();
   const repo = AppDataSource.getRepository(DocumentType);
-  const existing = await repo.findOneBy({ key: "receipt" });
+  const existing = await repo.findOne({ key: "receipt" });
 
   if (existing) {
     existing.name = "Receipt";

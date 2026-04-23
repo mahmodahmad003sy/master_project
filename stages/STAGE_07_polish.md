@@ -59,7 +59,9 @@ import config from "../../config/default.json";
 const SECRET = config.auth.jwtSecret;
 
 export function signShareToken(runId: number, ttlHours = 24): string {
-  return jwt.sign({ runId, scope: "read" }, SECRET, { expiresIn: `${ttlHours}h` });
+  return jwt.sign({ runId, scope: "read" }, SECRET, {
+    expiresIn: `${ttlHours}h`,
+  });
 }
 
 export function verifyShareToken(token: string, runId: number): boolean {
@@ -81,7 +83,7 @@ import { signShareToken, verifyShareToken } from "../utils/shareToken";
 
 export const createShareLink = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const run = await ComparisonRun.findOneBy({ id });
+  const run = await ComparisonRun.findOne({ id });
   if (!run) return res.status(404).send();
   const ttl = Number(req.query.ttl ?? 24);
   const token = signShareToken(id, ttl);
@@ -91,8 +93,9 @@ export const createShareLink = async (req: Request, res: Response) => {
 export const getPublicRun = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const token = (req.query.token as string) || "";
-  if (!verifyShareToken(token, id)) return res.status(401).json({ error: "Invalid token" });
-  const run = await ComparisonRun.findOneBy({ id });
+  if (!verifyShareToken(token, id))
+    return res.status(401).json({ error: "Invalid token" });
+  const run = await ComparisonRun.findOne({ id });
   if (!run) return res.status(404).send();
   const artifacts = await loadRunArtifacts(id);
   res.json({ run, artifacts });
@@ -102,7 +105,7 @@ export const getPublicImage = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const token = (req.query.token as string) || "";
   if (!verifyShareToken(token, id)) return res.status(401).send();
-  const run = await ComparisonRun.findOneBy({ id });
+  const run = await ComparisonRun.findOne({ id });
   if (!run) return res.status(404).send();
   const file = imagePath(id, run.imageName);
   if (!fs.existsSync(file)) return res.status(404).send();
@@ -115,7 +118,7 @@ export const getPublicImage = async (req: Request, res: Response) => {
 In `api/src/routes/index.ts`, mount the public routes **before** `requireAuth`:
 
 ```ts
-router.get("/public/runs/:id",       asyncHandler(getPublicRun));
+router.get("/public/runs/:id", asyncHandler(getPublicRun));
 router.get("/public/runs/:id/image", asyncHandler(getPublicImage));
 ```
 
@@ -139,7 +142,9 @@ const share = async () => {
   await navigator.clipboard.writeText(url);
   message.success("Share link copied");
 };
-<Button icon={<LinkOutlined />} onClick={share}>Share</Button>
+<Button icon={<LinkOutlined />} onClick={share}>
+  Share
+</Button>;
 ```
 
 ---
@@ -177,31 +182,76 @@ export default function PresentationPage() {
 
   useEffect(() => {
     const base = process.env.REACT_APP_API_URL || "http://localhost:3000";
-    axios.get(`${base}/api/public/runs/${id}`, { params: { token } })
+    axios
+      .get(`${base}/api/public/runs/${id}`, { params: { token } })
       .then((r) => setData(r.data))
       .catch((e) => setErr(e.response?.data?.error || e.message));
   }, [id, token]);
 
-  if (err)  return <Alert type="error" message={err} style={{ margin: 40 }} />;
+  if (err) return <Alert type="error" message={err} style={{ margin: 40 }} />;
   if (!data) return <Spin style={{ margin: 80 }} />;
 
   const { run, artifacts } = data;
   const base = process.env.REACT_APP_API_URL || "http://localhost:3000";
   const imgUrl = `${base}/api/public/runs/${run.id}/image?token=${token}`;
-  const byApproach = { classical: artifacts.classical, vlm: artifacts.vlm, hybrid: artifacts.hybrid };
-  const schemaFields = [];  // schema is loaded by authenticated pages; for public we skip
+  const byApproach = {
+    classical: artifacts.classical,
+    vlm: artifacts.vlm,
+    hybrid: artifacts.hybrid,
+  };
+  const schemaFields = []; // schema is loaded by authenticated pages; for public we skip
   const schemaArrays = [];
 
   return (
-    <div style={{ padding: 24, background: "#0b0f19", color: "white", minHeight: "100vh" }}>
-      <Title level={3} style={{ color: "white" }}>{run.filename}</Title>
+    <div
+      style={{
+        padding: 24,
+        background: "#0b0f19",
+        color: "white",
+        minHeight: "100vh",
+      }}
+    >
+      <Title level={3} style={{ color: "white" }}>
+        {run.filename}
+      </Title>
       <RecommendedBanner recommended={run.recommended} />
       <TimingBar timings={run.timings} />
       <Row gutter={16}>
-        <Col md={6}><Card><img src={imgUrl} style={{ width: "100%" }} /></Card></Col>
-        <Col md={6}><ApproachColumn title="Classical" data={byApproach.classical} timeMs={run.timings?.classical} agreements={{}} schemaFields={schemaFields} schemaArrays={schemaArrays} /></Col>
-        <Col md={6}><ApproachColumn title="VLM"       data={byApproach.vlm}       timeMs={run.timings?.vlm}       agreements={{}} schemaFields={schemaFields} schemaArrays={schemaArrays} /></Col>
-        <Col md={6}><ApproachColumn title="Hybrid"    data={byApproach.hybrid}    timeMs={run.timings?.hybrid}    agreements={{}} schemaFields={schemaFields} schemaArrays={schemaArrays} /></Col>
+        <Col md={6}>
+          <Card>
+            <img src={imgUrl} style={{ width: "100%" }} />
+          </Card>
+        </Col>
+        <Col md={6}>
+          <ApproachColumn
+            title="Classical"
+            data={byApproach.classical}
+            timeMs={run.timings?.classical}
+            agreements={{}}
+            schemaFields={schemaFields}
+            schemaArrays={schemaArrays}
+          />
+        </Col>
+        <Col md={6}>
+          <ApproachColumn
+            title="VLM"
+            data={byApproach.vlm}
+            timeMs={run.timings?.vlm}
+            agreements={{}}
+            schemaFields={schemaFields}
+            schemaArrays={schemaArrays}
+          />
+        </Col>
+        <Col md={6}>
+          <ApproachColumn
+            title="Hybrid"
+            data={byApproach.hybrid}
+            timeMs={run.timings?.hybrid}
+            agreements={{}}
+            schemaFields={schemaFields}
+            schemaArrays={schemaArrays}
+          />
+        </Col>
       </Row>
     </div>
   );
@@ -227,17 +277,47 @@ import React from "react";
  * Wrap an <img> and overlay rectangles from `boxes`.
  * boxes = [{ x, y, w, h, label, color? }] in source image coordinates.
  */
-export default function BBoxOverlay({ src, imageW, imageH, boxes = [], onClickBox }) {
+export default function BBoxOverlay({
+  src,
+  imageW,
+  imageH,
+  boxes = [],
+  onClickBox,
+}) {
   return (
     <div style={{ position: "relative", width: "100%" }}>
       <img src={src} alt="" style={{ width: "100%", display: "block" }} />
-      <svg viewBox={`0 0 ${imageW} ${imageH}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+      <svg
+        viewBox={`0 0 ${imageW} ${imageH}`}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+        }}
+      >
         {boxes.map((b, i) => (
-          <g key={i} onClick={() => onClickBox?.(b)} style={{ cursor: onClickBox ? "pointer" : "default" }}>
-            <rect x={b.x} y={b.y} width={b.w} height={b.h}
-                  fill="none" stroke={b.color || "#52c41a"} strokeWidth={2} />
+          <g
+            key={i}
+            onClick={() => onClickBox?.(b)}
+            style={{ cursor: onClickBox ? "pointer" : "default" }}
+          >
+            <rect
+              x={b.x}
+              y={b.y}
+              width={b.w}
+              height={b.h}
+              fill="none"
+              stroke={b.color || "#52c41a"}
+              strokeWidth={2}
+            />
             {b.label && (
-              <text x={b.x + 4} y={b.y + 14} fontSize={12} fill={b.color || "#52c41a"}>
+              <text
+                x={b.x + 4}
+                y={b.y + 14}
+                fontSize={12}
+                fill={b.color || "#52c41a"}
+              >
                 {b.label}
               </text>
             )}
@@ -253,10 +333,21 @@ Use it inside the image card of Compare / RunDetail pages. Derive boxes
 from whichever approach has them:
 
 ```jsx
-const boxes = (artifacts.hybrid?.boxes || artifacts.classical?.boxes || []).map((b) => ({
-  x: b.x, y: b.y, w: b.w, h: b.h, label: b.label,
-}));
-<BBoxOverlay src={runImageUrl(run.id)} imageW={run.imageW} imageH={run.imageH} boxes={boxes} />
+const boxes = (artifacts.hybrid?.boxes || artifacts.classical?.boxes || []).map(
+  (b) => ({
+    x: b.x,
+    y: b.y,
+    w: b.w,
+    h: b.h,
+    label: b.label,
+  }),
+);
+<BBoxOverlay
+  src={runImageUrl(run.id)}
+  imageW={run.imageW}
+  imageH={run.imageH}
+  boxes={boxes}
+/>;
 ```
 
 If Python doesn't return boxes yet, skip this section and come back once
@@ -275,9 +366,13 @@ import "react-json-view-lite/dist/index.css";
 
 <Collapse ghost>
   <Collapse.Panel header="Raw response" key="raw">
-    <JsonView data={data} shouldExpandNode={() => false} style={defaultStyles} />
+    <JsonView
+      data={data}
+      shouldExpandNode={() => false}
+      style={defaultStyles}
+    />
   </Collapse.Panel>
-</Collapse>
+</Collapse>;
 ```
 
 ---
@@ -297,7 +392,10 @@ export default function useHotkeys(map) {
       if (e.target instanceof HTMLInputElement) return;
       if (e.target instanceof HTMLTextAreaElement) return;
       const fn = map[e.key];
-      if (fn) { e.preventDefault(); fn(e); }
+      if (fn) {
+        e.preventDefault();
+        fn(e);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -312,12 +410,15 @@ import useHotkeys from "../hooks/useHotkeys";
 
 const colRefs = [useRef(), useRef(), useRef()];
 useHotkeys({
-  "1": () => colRefs[0].current?.scrollIntoView({ behavior: "smooth", block: "start" }),
-  "2": () => colRefs[1].current?.scrollIntoView({ behavior: "smooth", block: "start" }),
-  "3": () => colRefs[2].current?.scrollIntoView({ behavior: "smooth", block: "start" }),
-  "g": () => setGtOpen(true),
+  1: () =>
+    colRefs[0].current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+  2: () =>
+    colRefs[1].current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+  3: () =>
+    colRefs[2].current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+  g: () => setGtOpen(true),
 });
-<Col ref={colRefs[0]}>...</Col>
+<Col ref={colRefs[0]}>...</Col>;
 ```
 
 Add a small `?` button in the header that opens a Modal listing the
@@ -361,7 +462,11 @@ import { useSelector } from "react-redux";
 function ThemedApp({ children }) {
   const dark = useSelector((s) => s.ui.darkMode);
   return (
-    <ConfigProvider theme={{ algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm }}>
+    <ConfigProvider
+      theme={{
+        algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+      }}
+    >
       {children}
     </ConfigProvider>
   );
@@ -374,7 +479,7 @@ root.render(
         <App />
       </ThemedApp>
     </BrowserRouter>
-  </Provider>
+  </Provider>,
 );
 ```
 
@@ -385,7 +490,12 @@ import { Switch } from "antd";
 import { toggleDarkMode } from "./features/ui/uiSlice";
 
 const dark = useSelector((s) => s.ui.darkMode);
-<Switch checked={dark} onChange={() => dispatch(toggleDarkMode())} checkedChildren="Dark" unCheckedChildren="Light" />
+<Switch
+  checked={dark}
+  onChange={() => dispatch(toggleDarkMode())}
+  checkedChildren="Dark"
+  unCheckedChildren="Light"
+/>;
 ```
 
 ---
@@ -400,10 +510,18 @@ Replace the plain textarea in `GroundTruthDrawer.jsx` with a view + edit hybrid:
 Add a **Prettify** button:
 
 ```jsx
-<Button onClick={() => {
-  try { setText(JSON.stringify(JSON.parse(text), null, 2)); setError(null); }
-  catch (e) { setError("Invalid JSON: " + e.message); }
-}}>Prettify</Button>
+<Button
+  onClick={() => {
+    try {
+      setText(JSON.stringify(JSON.parse(text), null, 2));
+      setError(null);
+    } catch (e) {
+      setError("Invalid JSON: " + e.message);
+    }
+  }}
+>
+  Prettify
+</Button>
 ```
 
 ---
@@ -427,7 +545,7 @@ image requests only:
 
 ```ts
 const fromHeader = (req.headers.authorization || "").replace(/^Bearer /, "");
-const fromQuery  = typeof req.query.token === "string" ? req.query.token : "";
+const fromQuery = typeof req.query.token === "string" ? req.query.token : "";
 const token = fromHeader || fromQuery;
 ```
 

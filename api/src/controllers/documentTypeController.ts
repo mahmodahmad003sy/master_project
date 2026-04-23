@@ -8,7 +8,7 @@ export const listDocumentTypes = async (_req: Request, res: Response) => {
 
 export const getDocumentType = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const item = await DocumentType.findOneBy({ id });
+  const item = await DocumentType.findOne({ id });
 
   if (!item) {
     return res.status(404).json({ error: "Not found" });
@@ -24,7 +24,7 @@ export const createDocumentType = async (req: Request, res: Response) => {
     return res.status(400).json({ error: "key, name, schema are required" });
   }
 
-  const existing = await DocumentType.findOneBy({ key });
+  const existing = await DocumentType.findOne({ key });
   if (existing) {
     return res.status(409).json({ error: "key already exists" });
   }
@@ -36,7 +36,7 @@ export const createDocumentType = async (req: Request, res: Response) => {
 
 export const updateDocumentType = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const item = await DocumentType.findOneBy({ id });
+  const item = await DocumentType.findOne({ id });
 
   if (!item) {
     return res.status(404).json({ error: "Not found" });

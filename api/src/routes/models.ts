@@ -33,7 +33,7 @@ router.post(
       languages,
     });
     res.status(201).json(model);
-  })
+  }),
 );
 
 router.get(
@@ -41,7 +41,7 @@ router.get(
   asyncHandler(async (_req: Request, res: Response) => {
     const models = await listModels();
     res.json(models);
-  })
+  }),
 );
 
 router.post(
@@ -52,7 +52,7 @@ router.post(
     if (!req.file) throw { statusCode: 400, message: "No file uploaded" };
     const updated = await uploadModelFile(modelId, req.file);
     res.json(updated);
-  })
+  }),
 );
 
 router.post(
@@ -63,14 +63,14 @@ router.post(
     if (!req.file) throw { statusCode: 400, message: "No file uploaded" };
     const result = await uploadDatasetFile(modelId, req.file);
     res.json(result);
-  })
+  }),
 );
 
 router.put(
   "/:modelId",
   asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.modelId, 10);
-    const model = await Model.findOneBy({ id });
+    const model = await Model.findOne({ id });
     if (!model) return res.status(404).send();
 
     const {
@@ -94,24 +94,24 @@ router.put(
       model.languages = Array.isArray(languages)
         ? languages
         : typeof languages === "string"
-        ? languages.split(",").map((l) => l.trim())
-        : model.languages;
+          ? languages.split(",").map((l) => l.trim())
+          : model.languages;
     }
 
     await model.save();
     res.json(model);
-  })
+  }),
 );
 
 router.delete(
   "/:modelId",
   asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.modelId, 10);
-    const model = await Model.findOneBy({ id });
+    const model = await Model.findOne({ id });
     if (!model) return res.status(404).send();
     await model.remove();
     res.status(204).send();
-  })
+  }),
 );
 
 export default router;

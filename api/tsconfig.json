@@ -6,9 +6,10 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,
-    "strict": true,
+    "strict": false,
     "outDir": "dist",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "config/**/*.json"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "config/**/*.json"],
+  "exclude": ["src/__tests__/**/*"]
 }

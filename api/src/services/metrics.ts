@@ -75,9 +75,22 @@ export function normalizeNumber(value: unknown): number | null {
     return value;
   }
 
-  const normalized = String(value)
-    .replace(/[^\d.,-]/g, "")
-    .replace(",", ".");
+  const raw = String(value).replace(/[^\d.,-]/g, "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  const lastComma = raw.lastIndexOf(",");
+  const lastDot = raw.lastIndexOf(".");
+  const decimalIndex = Math.max(lastComma, lastDot);
+
+  let normalized = raw;
+  if (decimalIndex >= 0) {
+    const integerPart = raw.slice(0, decimalIndex).replace(/[.,]/g, "");
+    const decimalPart = raw.slice(decimalIndex + 1).replace(/[.,]/g, "");
+    normalized = decimalPart ? `${integerPart}.${decimalPart}` : integerPart;
+  }
+
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 }

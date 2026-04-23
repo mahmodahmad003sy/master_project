@@ -19,9 +19,8 @@ import { readJson, removeRunDir, writeJson } from "../services/runStorage";
 import { AuthRequest } from "../utils/authMiddleware";
 
 async function findBenchmarkForUser(id: number, userId?: number) {
-  const benchmark = await Benchmark.findOne({
-    where: { id },
-    relations: { user: true },
+  const benchmark = await Benchmark.findOne(id, {
+    relations: ["user"],
   });
 
   if (!benchmark) {
@@ -57,15 +56,17 @@ export const createBenchmark = async (req: AuthRequest, res: Response) => {
   const documentTypeKey = String(req.body?.documentType ?? "").trim();
 
   if (!name || !documentTypeKey) {
-    return res.status(400).json({ error: "name and documentType are required" });
+    return res
+      .status(400)
+      .json({ error: "name and documentType are required" });
   }
 
-  const documentType = await DocumentType.findOneBy({ key: documentTypeKey });
+  const documentType = await DocumentType.findOne({ key: documentTypeKey });
   if (!documentType) {
     return res.status(400).json({ error: "Unknown document type" });
   }
 
-  const user = req.userId ? await User.findOneBy({ id: req.userId }) : null;
+  const user = req.userId ? await User.findOne({ id: req.userId }) : null;
   const benchmark = Benchmark.create({
     name,
     documentType: documentType.key,
@@ -128,7 +129,7 @@ export const uploadBenchmarkItems = async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ error: "Zip file is required" });
   }
 
-  const existingRuns = await ComparisonRun.countBy({ benchmarkId: id });
+  const existingRuns = await ComparisonRun.count({ benchmarkId: id });
   if (benchmark.status === "running" || existingRuns > 0) {
     await fs.promises.unlink(req.file.path).catch(() => undefined);
     return res.status(409).json({
@@ -137,7 +138,10 @@ export const uploadBenchmarkItems = async (req: AuthRequest, res: Response) => {
   }
 
   await ensureBenchmarkDir(id);
-  await fs.promises.rm(benchmarkImagesDir(id), { recursive: true, force: true });
+  await fs.promises.rm(benchmarkImagesDir(id), {
+    recursive: true,
+    force: true,
+  });
   await ensureBenchmarkDir(id);
   await deleteIfExists(benchmarkGtPath(id));
   await deleteIfExists(benchmarkReportPath(id));
@@ -172,9 +176,9 @@ export const uploadBenchmarkItems = async (req: AuthRequest, res: Response) => {
     await fs.promises.unlink(req.file.path).catch(() => undefined);
   }
 
-  const uploadedFiles = (await fs.promises.readdir(benchmarkImagesDir(id))).filter(
-    (name) => /\.(jpe?g|png|webp|bmp)$/i.test(name)
-  );
+  const uploadedFiles = (
+    await fs.promises.readdir(benchmarkImagesDir(id))
+  ).filter((name) => /\.(jpe?g|png|webp|bmp)$/i.test(name));
 
   benchmark.totalItems = uploadedFiles.length;
   benchmark.doneItems = 0;
@@ -201,11 +205,11 @@ export const runBenchmark = async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ error: "Upload benchmark items first" });
   }
 
-  const existingRuns = await ComparisonRun.countBy({ benchmarkId: id });
+  const existingRuns = await ComparisonRun.count({ benchmarkId: id });
   if (existingRuns > 0) {
-    return res
-      .status(409)
-      .json({ error: "Benchmark already executed; create a new benchmark to rerun" });
+    return res.status(409).json({
+      error: "Benchmark already executed; create a new benchmark to rerun",
+    });
   }
 
   benchmark.status = "running";
@@ -235,7 +239,10 @@ export const exportBenchmarkCsv = async (req: AuthRequest, res: Response) => {
   const csv = toCsv(items);
 
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", `attachment; filename="benchmark-${id}.csv"`);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="benchmark-${id}.csv"`,
+  );
   res.send(csv);
 };
 

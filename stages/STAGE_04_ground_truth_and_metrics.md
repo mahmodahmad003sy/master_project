@@ -91,8 +91,8 @@ export type FieldType = "text" | "number" | "money" | "date";
 export interface FieldSpec {
   key: string;
   type: FieldType;
-  formats?: string[];    // for dates
-  tolerance?: number;    // for numbers / money
+  formats?: string[]; // for dates
+  tolerance?: number; // for numbers / money
 }
 
 export interface ArraySpec {
@@ -107,14 +107,19 @@ export interface Schema {
   arrays: ArraySpec[];
 }
 
-export type MatchStatus = "exact" | "fuzzy" | "miss" | "missing_gt" | "missing_pred";
+export type MatchStatus =
+  | "exact"
+  | "fuzzy"
+  | "miss"
+  | "missing_gt"
+  | "missing_pred";
 
 export interface FieldScore {
   key: string;
   status: MatchStatus;
   predicted: any;
   expected: any;
-  score: number;  // 0..1
+  score: number; // 0..1
 }
 
 export interface ArrayRowScore {
@@ -124,9 +129,9 @@ export interface ArrayRowScore {
 }
 
 export interface ApproachScore {
-  fields: FieldScore[];          // top-level fields
+  fields: FieldScore[]; // top-level fields
   arrays: Record<string, ArrayRowScore[]>;
-  meanFieldScore: number;        // average over fields + array rows
+  meanFieldScore: number; // average over fields + array rows
   counts: { exact: number; fuzzy: number; miss: number; total: number };
 }
 
@@ -134,7 +139,7 @@ export type ApproachKey = "classical" | "vlm" | "hybrid";
 
 export interface RunMetrics {
   perApproach: Record<ApproachKey, ApproachScore | null>;
-  summary: Record<ApproachKey, number>;  // 0..1 accuracy for the list UI
+  summary: Record<ApproachKey, number>; // 0..1 accuracy for the list UI
 }
 
 /* ------------------------------------------------------------------ */
@@ -149,7 +154,9 @@ export function normalizeText(v: unknown): string {
 export function normalizeNumber(v: unknown): number | null {
   if (v == null || v === "") return null;
   if (typeof v === "number" && !Number.isNaN(v)) return v;
-  const s = String(v).replace(/[^\d.,-]/g, "").replace(",", ".");
+  const s = String(v)
+    .replace(/[^\d.,-]/g, "")
+    .replace(",", ".");
   const n = parseFloat(s);
   return Number.isFinite(n) ? n : null;
 }
@@ -260,7 +267,7 @@ export function fieldMatch(pred: any, gt: any, spec: FieldSpec): FieldScore {
 export function orderMatch(
   predRows: any[],
   gtRows: any[],
-  spec: ArraySpec
+  spec: ArraySpec,
 ): ArrayRowScore[] {
   const n = Math.max(predRows.length, gtRows.length);
   if (n === 0) return [];
@@ -284,7 +291,7 @@ export function orderMatch(
     if (!predRow || !gtRow) continue;
 
     const fieldScores = spec.fields.map((f) =>
-      fieldMatch(predRow[f.key], gtRow[f.key], f)
+      fieldMatch(predRow[f.key], gtRow[f.key], f),
     );
     const mean =
       fieldScores.reduce((s, f) => s + f.score, 0) /
@@ -302,25 +309,27 @@ export function orderMatch(
 export function scoreApproach(
   approachResult: any,
   gt: any,
-  schema: Schema
+  schema: Schema,
 ): ApproachScore {
   const predFields = approachResult?.fields ?? {};
   const gtFields = gt ?? {};
 
   const fieldScores = schema.fields.map((f) =>
-    fieldMatch(predFields[f.key], gtFields[f.key], f)
+    fieldMatch(predFields[f.key], gtFields[f.key], f),
   );
 
   const arrays: Record<string, ArrayRowScore[]> = {};
   for (const a of schema.arrays) {
     arrays[a.key] = orderMatch(
       Array.isArray(predFields[a.key]) ? predFields[a.key] : [],
-      Array.isArray(gtFields[a.key])   ? gtFields[a.key]   : [],
-      a
+      Array.isArray(gtFields[a.key]) ? gtFields[a.key] : [],
+      a,
     );
   }
 
-  const arrayAllScores = Object.values(arrays).flat().map((r) => r.score);
+  const arrayAllScores = Object.values(arrays)
+    .flat()
+    .map((r) => r.score);
   const all = [...fieldScores.map((f) => f.score), ...arrayAllScores];
 
   const counts = fieldScores.reduce(
@@ -331,13 +340,15 @@ export function scoreApproach(
       else if (f.status === "miss" || f.status === "missing_pred") acc.miss++;
       return acc;
     },
-    { exact: 0, fuzzy: 0, miss: 0, total: 0 }
+    { exact: 0, fuzzy: 0, miss: 0, total: 0 },
   );
 
   return {
     fields: fieldScores,
     arrays,
-    meanFieldScore: all.length ? all.reduce((s, v) => s + v, 0) / all.length : 0,
+    meanFieldScore: all.length
+      ? all.reduce((s, v) => s + v, 0) / all.length
+      : 0,
     counts,
   };
 }
@@ -349,23 +360,28 @@ export function scoreApproach(
 export function scoreRun(
   artifacts: { classical: any; vlm: any; hybrid: any },
   gt: any,
-  schema: Schema
+  schema: Schema,
 ): RunMetrics {
   const perApproach: RunMetrics["perApproach"] = {
-    classical: artifacts.classical ? scoreApproach(artifacts.classical, gt, schema) : null,
-    vlm:       artifacts.vlm       ? scoreApproach(artifacts.vlm,       gt, schema) : null,
-    hybrid:    artifacts.hybrid    ? scoreApproach(artifacts.hybrid,    gt, schema) : null,
+    classical: artifacts.classical
+      ? scoreApproach(artifacts.classical, gt, schema)
+      : null,
+    vlm: artifacts.vlm ? scoreApproach(artifacts.vlm, gt, schema) : null,
+    hybrid: artifacts.hybrid
+      ? scoreApproach(artifacts.hybrid, gt, schema)
+      : null,
   };
   const summary: RunMetrics["summary"] = {
     classical: perApproach.classical?.meanFieldScore ?? 0,
-    vlm:       perApproach.vlm?.meanFieldScore       ?? 0,
-    hybrid:    perApproach.hybrid?.meanFieldScore    ?? 0,
+    vlm: perApproach.vlm?.meanFieldScore ?? 0,
+    hybrid: perApproach.hybrid?.meanFieldScore ?? 0,
   };
   return { perApproach, summary };
 }
 ```
 
 **Beginner notes:**
+
 - `fieldMatch` returns a rich object so the UI can colour cells exactly
   (exact = green, fuzzy = amber, miss = red, `missing_pred` = grey cross,
   `missing_gt` = info icon meaning "we can't score this one").
@@ -398,7 +414,7 @@ Add helper below the existing handlers:
 
 ```ts
 async function recomputeAndPersistMetrics(runId: number) {
-  const run = await ComparisonRun.findOneBy({ id: runId });
+  const run = await ComparisonRun.findOne({ id: runId });
   if (!run) return;
 
   const gt = await readJson(artifactPath(runId, "ground_truth"));
@@ -409,7 +425,7 @@ async function recomputeAndPersistMetrics(runId: number) {
     return;
   }
 
-  const dt = await DocumentType.findOneBy({ key: run.documentType });
+  const dt = await DocumentType.findOne({ key: run.documentType });
   if (!dt) return;
   const schema = dt.schema as Schema;
 
@@ -433,7 +449,7 @@ Add the PUT handler:
 ```ts
 export const putGroundTruth = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const run = await ComparisonRun.findOneBy({ id });
+  const run = await ComparisonRun.findOne({ id });
   if (!run) return res.status(404).json({ error: "Not found" });
 
   const body = req.body;
@@ -444,7 +460,7 @@ export const putGroundTruth = async (req: Request, res: Response) => {
   await writeJson(artifactPath(id, "ground_truth"), body);
   await recomputeAndPersistMetrics(id);
 
-  const updated = await ComparisonRun.findOneBy({ id });
+  const updated = await ComparisonRun.findOne({ id });
   const [gt, metrics] = await Promise.all([
     readJson(artifactPath(id, "ground_truth")),
     readJson(artifactPath(id, "metrics")),
@@ -454,7 +470,7 @@ export const putGroundTruth = async (req: Request, res: Response) => {
 
 export const deleteGroundTruth = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const run = await ComparisonRun.findOneBy({ id });
+  const run = await ComparisonRun.findOne({ id });
   if (!run) return res.status(404).json({ error: "Not found" });
 
   const fs = await import("fs");
@@ -472,7 +488,10 @@ export const deleteGroundTruth = async (req: Request, res: Response) => {
 ### File to modify: `api/src/routes/runs.ts`
 
 ```ts
-import { putGroundTruth, deleteGroundTruth } from "../controllers/runsController";
+import {
+  putGroundTruth,
+  deleteGroundTruth,
+} from "../controllers/runsController";
 // ...
 router.put("/runs/:id/ground-truth", asyncHandler(putGroundTruth));
 router.delete("/runs/:id/ground-truth", asyncHandler(deleteGroundTruth));
@@ -531,7 +550,7 @@ export const saveGroundTruth = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(err.response?.data?.error || err.message);
     }
-  }
+  },
 );
 
 export const clearGroundTruth = createAsyncThunk(
@@ -543,7 +562,7 @@ export const clearGroundTruth = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(err.response?.data?.error || err.message);
     }
-  }
+  },
 );
 ```
 
@@ -581,7 +600,10 @@ Extend `extraReducers`:
 import React, { useState, useEffect } from "react";
 import { Drawer, Button, Space, Input, Alert, Popconfirm, message } from "antd";
 import { useDispatch } from "react-redux";
-import { saveGroundTruth, clearGroundTruth } from "../../features/runs/runsSlice";
+import {
+  saveGroundTruth,
+  clearGroundTruth,
+} from "../../features/runs/runsSlice";
 
 const { TextArea } = Input;
 
@@ -598,16 +620,24 @@ export default function GroundTruthDrawer({ open, onClose, runId, initialGt }) {
 
   const onSave = async () => {
     let parsed;
-    try { parsed = JSON.parse(text); }
-    catch (e) { setError("Invalid JSON: " + e.message); return; }
+    try {
+      parsed = JSON.parse(text);
+    } catch (e) {
+      setError("Invalid JSON: " + e.message);
+      return;
+    }
     setSaving(true);
     try {
-      await dispatch(saveGroundTruth({ id: runId, groundTruth: parsed })).unwrap();
+      await dispatch(
+        saveGroundTruth({ id: runId, groundTruth: parsed }),
+      ).unwrap();
       message.success("Ground truth saved; metrics recomputed");
       onClose();
     } catch (err) {
       setError(String(err));
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const onClear = async () => {
@@ -615,11 +645,18 @@ export default function GroundTruthDrawer({ open, onClose, runId, initialGt }) {
       await dispatch(clearGroundTruth(runId)).unwrap();
       message.success("Ground truth removed");
       onClose();
-    } catch (err) { message.error(String(err)); }
+    } catch (err) {
+      message.error(String(err));
+    }
   };
 
   return (
-    <Drawer title={`Ground truth — Run #${runId}`} open={open} onClose={onClose} width={520}>
+    <Drawer
+      title={`Ground truth — Run #${runId}`}
+      open={open}
+      onClose={onClose}
+      width={520}
+    >
       <Space direction="vertical" style={{ width: "100%" }}>
         {error && <Alert type="error" message={error} />}
         <TextArea
@@ -630,7 +667,9 @@ export default function GroundTruthDrawer({ open, onClose, runId, initialGt }) {
           style={{ fontFamily: "monospace" }}
         />
         <Space>
-          <Button type="primary" loading={saving} onClick={onSave}>Save</Button>
+          <Button type="primary" loading={saving} onClick={onSave}>
+            Save
+          </Button>
           <Button onClick={onClose}>Cancel</Button>
           {initialGt && (
             <Popconfirm title="Remove ground truth?" onConfirm={onClear}>
@@ -654,7 +693,8 @@ import { Tag } from "antd";
 export default function ScoreBadge({ score }) {
   if (score == null) return <Tag>—</Tag>;
   const pct = Math.round(score * 100);
-  const color = pct >= 90 ? "green" : pct >= 70 ? "gold" : pct >= 50 ? "orange" : "red";
+  const color =
+    pct >= 90 ? "green" : pct >= 70 ? "gold" : pct >= 50 ? "orange" : "red";
   return <Tag color={color}>{pct}%</Tag>;
 }
 ```
@@ -665,29 +705,54 @@ Accept an optional `fieldScore` (from metrics.json) and render an icon
 beside the value:
 
 ```jsx
-import { CheckCircleTwoTone, CloseCircleTwoTone, MinusCircleTwoTone } from "@ant-design/icons";
+import {
+  CheckCircleTwoTone,
+  CloseCircleTwoTone,
+  MinusCircleTwoTone,
+} from "@ant-design/icons";
 
 export default function FieldCell({ value, agreement, fieldScore }) {
   const color =
-    agreement === "all"   ? "#d9f7be" :
-    agreement === "two"   ? "#fff1b8" :
-    agreement === "alone" ? "#ffa39e" :
-                            "#f5f5f5";
+    agreement === "all"
+      ? "#d9f7be"
+      : agreement === "two"
+        ? "#fff1b8"
+        : agreement === "alone"
+          ? "#ffa39e"
+          : "#f5f5f5";
 
-  const icon =
-    !fieldScore ? null :
-    fieldScore.status === "exact" ? <CheckCircleTwoTone twoToneColor="#52c41a" /> :
-    fieldScore.status === "fuzzy" ? <CheckCircleTwoTone twoToneColor="#faad14" /> :
-    fieldScore.status === "miss"  ? <CloseCircleTwoTone twoToneColor="#ff4d4f" /> :
-    <MinusCircleTwoTone twoToneColor="#bfbfbf" />;
+  const icon = !fieldScore ? null : fieldScore.status === "exact" ? (
+    <CheckCircleTwoTone twoToneColor="#52c41a" />
+  ) : fieldScore.status === "fuzzy" ? (
+    <CheckCircleTwoTone twoToneColor="#faad14" />
+  ) : fieldScore.status === "miss" ? (
+    <CloseCircleTwoTone twoToneColor="#ff4d4f" />
+  ) : (
+    <MinusCircleTwoTone twoToneColor="#bfbfbf" />
+  );
 
   return (
-    <div style={{ background: color, padding: "4px 8px", borderRadius: 4, display: "flex", alignItems: "center", gap: 8 }}>
+    <div
+      style={{
+        background: color,
+        padding: "4px 8px",
+        borderRadius: 4,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
       {icon}
       <div style={{ flex: 1, wordBreak: "break-word" }}>
-        {value == null || value === "" ? <span style={{ color: "#888" }}>∅</span>
-         : typeof value === "object" ? <pre style={{ margin: 0, fontSize: 12 }}>{JSON.stringify(value, null, 2)}</pre>
-         : String(value)}
+        {value == null || value === "" ? (
+          <span style={{ color: "#888" }}>∅</span>
+        ) : typeof value === "object" ? (
+          <pre style={{ margin: 0, fontSize: 12 }}>
+            {JSON.stringify(value, null, 2)}
+          </pre>
+        ) : (
+          String(value)
+        )}
       </div>
     </div>
   );
@@ -754,7 +819,7 @@ Read metrics and GT from `useSelector((s) => s.runs.detail)`:
 ```jsx
 const detail = useSelector((s) => s.runs.detail);
 const metrics = detail?.artifacts?.metrics || null;
-const gt      = detail?.artifacts?.groundTruth || null;
+const gt = detail?.artifacts?.groundTruth || null;
 
 const fieldScoresByKey = (approach) => {
   const list = metrics?.perApproach?.[approach]?.fields || [];

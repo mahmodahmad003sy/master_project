@@ -54,7 +54,7 @@ function parseDateParam(label: string, value: string | undefined) {
 function applyDateFilters(
   qb: SelectQueryBuilder<ComparisonRun>,
   dateFrom: Date | null,
-  dateTo: Date | null
+  dateTo: Date | null,
 ) {
   if (dateFrom) {
     qb.andWhere("run.createdAt >= :dateFrom", {
@@ -68,9 +68,8 @@ function applyDateFilters(
 }
 
 async function findRunForUser(id: number, userId?: number) {
-  const run = await ComparisonRun.findOne({
-    where: { id },
-    relations: { user: true },
+  const run = await ComparisonRun.findOne(id, {
+    relations: ["user"],
   });
 
   if (!run) {
@@ -85,11 +84,11 @@ async function findRunForUser(id: number, userId?: number) {
 }
 
 async function findRunById(id: number) {
-  return ComparisonRun.findOneBy({ id });
+  return ComparisonRun.findOne({ id });
 }
 
 async function recomputeAndPersistMetrics(runId: number) {
-  const run = await ComparisonRun.findOneBy({ id: runId });
+  const run = await ComparisonRun.findOne({ id: runId });
   if (!run) {
     return;
   }
@@ -102,7 +101,7 @@ async function recomputeAndPersistMetrics(runId: number) {
     return;
   }
 
-  const documentType = await DocumentType.findOneBy({ key: run.documentType });
+  const documentType = await DocumentType.findOne({ key: run.documentType });
   if (!documentType) {
     return;
   }
@@ -116,7 +115,7 @@ async function recomputeAndPersistMetrics(runId: number) {
   const metrics = scoreRun(
     { classical, vlm, hybrid },
     groundTruth,
-    documentType.schema as unknown as Schema
+    documentType.schema as unknown as Schema,
   );
 
   await writeJson(artifactPath(runId, "metrics"), metrics);
@@ -130,7 +129,9 @@ export const postCompare = async (req: AuthRequest, res: Response) => {
     throw { statusCode: 400, message: "No file uploaded" };
   }
 
-  const documentType = String(req.body.documentType ?? req.query.documentType ?? "");
+  const documentType = String(
+    req.body.documentType ?? req.query.documentType ?? "",
+  );
   if (!documentType) {
     throw { statusCode: 400, message: "documentType is required" };
   }
@@ -208,7 +209,8 @@ export const createShareLink = async (req: AuthRequest, res: Response) => {
   }
 
   const rawTtl = Number(req.query.ttl ?? 24);
-  const ttl = Number.isFinite(rawTtl) && rawTtl > 0 ? Math.min(rawTtl, 24 * 30) : 24;
+  const ttl =
+    Number.isFinite(rawTtl) && rawTtl > 0 ? Math.min(rawTtl, 24 * 30) : 24;
   const token = signShareToken(id, ttl);
 
   res.json({
@@ -246,7 +248,7 @@ export const putGroundTruth = async (req: AuthRequest, res: Response) => {
   await writeJson(artifactPath(id, "ground_truth"), req.body);
   await recomputeAndPersistMetrics(id);
 
-  const updatedRun = await ComparisonRun.findOneBy({ id });
+  const updatedRun = await ComparisonRun.findOne({ id });
   const [groundTruth, metrics] = await Promise.all([
     readJson(artifactPath(id, "ground_truth")),
     readJson(artifactPath(id, "metrics")),
@@ -332,7 +334,7 @@ export const getPublicRun = async (req: Request, res: Response) => {
 
   const [artifacts, documentType] = await Promise.all([
     loadRunArtifacts(id),
-    DocumentType.findOneBy({ key: run.documentType }),
+    DocumentType.findOne({ key: run.documentType }),
   ]);
 
   res.json({

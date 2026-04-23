@@ -85,11 +85,22 @@ benchmarkId!: number | null;
 ```ts
 // api/src/entities/Benchmark.ts
 import {
-  Entity, BaseEntity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn,
+  Entity,
+  BaseEntity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from "typeorm";
 import { User } from "./User";
 
-export type BenchmarkStatus = "draft" | "running" | "done" | "failed" | "cancelled";
+export type BenchmarkStatus =
+  | "draft"
+  | "running"
+  | "done"
+  | "failed"
+  | "cancelled";
 
 @Entity("benchmarks")
 export class Benchmark extends BaseEntity {
@@ -182,7 +193,9 @@ import { ComparisonRun } from "../entities/ComparisonRun";
 import { runCompare } from "../controllers/compareController";
 import { artifactPath, readJson, writeJson } from "./runStorage";
 import {
-  benchmarkImagesDir, benchmarkGtPath, benchmarkReportPath,
+  benchmarkImagesDir,
+  benchmarkGtPath,
+  benchmarkReportPath,
 } from "./benchmarkStorage";
 import { scoreRun, Schema } from "./metrics";
 import { DocumentType } from "../entities/DocumentType";
@@ -207,10 +220,12 @@ function emit(benchmarkId: number, evt: any) {
 
 /** Running benchmarks tracked so we can cancel. */
 const cancelFlags: Map<number, boolean> = new Map();
-export function cancelBenchmark(id: number) { cancelFlags.set(id, true); }
+export function cancelBenchmark(id: number) {
+  cancelFlags.set(id, true);
+}
 
 export async function startBenchmark(benchmarkId: number) {
-  const bm = await Benchmark.findOneBy({ id: benchmarkId });
+  const bm = await Benchmark.findOne({ id: benchmarkId });
   if (!bm) throw new Error("Benchmark not found");
   if (bm.status === "running") return;
 
@@ -220,14 +235,21 @@ export async function startBenchmark(benchmarkId: number) {
   await bm.save();
   emit(benchmarkId, { type: "status", status: "running" });
 
-  const dt = await DocumentType.findOneBy({ key: bm.documentType });
-  if (!dt) { bm.status = "failed"; await bm.save(); emit(benchmarkId, { type: "error", error: "Unknown document type" }); return; }
+  const dt = await DocumentType.findOne({ key: bm.documentType });
+  if (!dt) {
+    bm.status = "failed";
+    await bm.save();
+    emit(benchmarkId, { type: "error", error: "Unknown document type" });
+    return;
+  }
   const schema = dt.schema as Schema;
 
-  const gtMap = ((await readJson(benchmarkGtPath(benchmarkId))) || {}) as Record<string, any>;
+  const gtMap = ((await readJson(benchmarkGtPath(benchmarkId))) ||
+    {}) as Record<string, any>;
   const imagesDir = benchmarkImagesDir(benchmarkId);
-  const files = (await fs.promises.readdir(imagesDir))
-    .filter((f) => /\.(jpe?g|png|webp|bmp)$/i.test(f));
+  const files = (await fs.promises.readdir(imagesDir)).filter((f) =>
+    /\.(jpe?g|png|webp|bmp)$/i.test(f),
+  );
 
   bm.totalItems = files.length;
   bm.doneItems = 0;
@@ -237,7 +259,10 @@ export async function startBenchmark(benchmarkId: number) {
 
   try {
     for (const filename of files) {
-      if (cancelFlags.get(benchmarkId)) { bm.status = "cancelled"; break; }
+      if (cancelFlags.get(benchmarkId)) {
+        bm.status = "cancelled";
+        break;
+      }
 
       const abs = path.join(imagesDir, filename);
       const stat = await fs.promises.stat(abs);
@@ -283,11 +308,20 @@ export async function startBenchmark(benchmarkId: number) {
         emit(benchmarkId, { type: "item", filename, runId: run.id, ok: true });
       } catch (err: any) {
         bm.failedItems++;
-        emit(benchmarkId, { type: "item", filename, ok: false, error: err?.message ?? String(err) });
+        emit(benchmarkId, {
+          type: "item",
+          filename,
+          ok: false,
+          error: err?.message ?? String(err),
+        });
       }
 
       await bm.save();
-      emit(benchmarkId, { type: "progress", done: bm.doneItems + bm.failedItems, total: bm.totalItems });
+      emit(benchmarkId, {
+        type: "progress",
+        done: bm.doneItems + bm.failedItems,
+        total: bm.totalItems,
+      });
     }
 
     // Build the aggregated report.
@@ -307,8 +341,16 @@ export async function startBenchmark(benchmarkId: number) {
 
 export function aggregateReport(runs: ComparisonRun[]) {
   const approaches = ["classical", "vlm", "hybrid"] as const;
-  const timings: Record<string, number[]> = { classical: [], vlm: [], hybrid: [] };
-  const scores:  Record<string, number[]> = { classical: [], vlm: [], hybrid: [] };
+  const timings: Record<string, number[]> = {
+    classical: [],
+    vlm: [],
+    hybrid: [],
+  };
+  const scores: Record<string, number[]> = {
+    classical: [],
+    vlm: [],
+    hybrid: [],
+  };
 
   for (const r of runs) {
     for (const a of approaches) {
@@ -322,7 +364,8 @@ export function aggregateReport(runs: ComparisonRun[]) {
     const sorted = [...arr].sort((x, y) => x - y);
     return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
   };
-  const mean = (arr: number[]) => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+  const mean = (arr: number[]) =>
+    arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
 
   return {
     total: runs.length,
@@ -330,7 +373,7 @@ export function aggregateReport(runs: ComparisonRun[]) {
       approach: a,
       accuracy_mean: mean(scores[a]),
       latency_mean_ms: mean(timings[a]),
-      latency_p50_ms: pct(timings[a], 0.50),
+      latency_p50_ms: pct(timings[a], 0.5),
       latency_p95_ms: pct(timings[a], 0.95),
       scored_count: scores[a].length,
     })),
@@ -339,6 +382,7 @@ export function aggregateReport(runs: ComparisonRun[]) {
 ```
 
 **Beginner notes:**
+
 - We run items **sequentially**, not in parallel, because the GPU‑bound
   Python service can't handle much concurrency and thesis reproducibility is
   easier with a stable order.
@@ -361,30 +405,41 @@ import { ComparisonRun } from "../entities/ComparisonRun";
 
 export function toCsv(runs: ComparisonRun[]): string {
   const header = [
-    "runId", "filename", "hasGroundTruth",
-    "score_classical", "score_vlm", "score_hybrid",
-    "time_classical_ms", "time_vlm_ms", "time_hybrid_ms",
+    "runId",
+    "filename",
+    "hasGroundTruth",
+    "score_classical",
+    "score_vlm",
+    "score_hybrid",
+    "time_classical_ms",
+    "time_vlm_ms",
+    "time_hybrid_ms",
     "recommended",
   ];
-  const rows = runs.map((r) => [
-    r.id,
-    JSON.stringify(r.filename),
-    r.hasGroundTruth,
-    r.summary?.classical ?? "",
-    r.summary?.vlm ?? "",
-    r.summary?.hybrid ?? "",
-    r.timings?.classical ?? "",
-    r.timings?.vlm ?? "",
-    r.timings?.hybrid ?? "",
-    JSON.stringify(r.recommended ?? ""),
-  ].join(","));
+  const rows = runs.map((r) =>
+    [
+      r.id,
+      JSON.stringify(r.filename),
+      r.hasGroundTruth,
+      r.summary?.classical ?? "",
+      r.summary?.vlm ?? "",
+      r.summary?.hybrid ?? "",
+      r.timings?.classical ?? "",
+      r.timings?.vlm ?? "",
+      r.timings?.hybrid ?? "",
+      JSON.stringify(r.recommended ?? ""),
+    ].join(","),
+  );
   return [header.join(","), ...rows].join("\n");
 }
 
 export function toLatex(report: ReturnType<typeof makeSummary>): string {
-  const rows = report.perApproach.map((p) =>
-    `${p.approach} & ${fmtPct(p.accuracy_mean)} & ${fmt(p.latency_mean_ms)} & ${fmt(p.latency_p50_ms)} & ${fmt(p.latency_p95_ms)} \\\\`
-  ).join("\n");
+  const rows = report.perApproach
+    .map(
+      (p) =>
+        `${p.approach} & ${fmtPct(p.accuracy_mean)} & ${fmt(p.latency_mean_ms)} & ${fmt(p.latency_p50_ms)} & ${fmt(p.latency_p95_ms)} \\\\`,
+    )
+    .join("\n");
   return [
     "\\begin{tabular}{lcccc}",
     "\\hline",
@@ -396,11 +451,17 @@ export function toLatex(report: ReturnType<typeof makeSummary>): string {
   ].join("\n");
 }
 
-function fmt(n: number | null | undefined) { return n == null ? "--" : n.toFixed(0); }
-function fmtPct(n: number | null | undefined) { return n == null ? "--" : (n * 100).toFixed(1) + "\\%"; }
+function fmt(n: number | null | undefined) {
+  return n == null ? "--" : n.toFixed(0);
+}
+function fmtPct(n: number | null | undefined) {
+  return n == null ? "--" : (n * 100).toFixed(1) + "\\%";
+}
 
 /** Convenience re-export for the route to call. */
-export function makeSummary(report: any) { return report; }
+export function makeSummary(report: any) {
+  return report;
+}
 ```
 
 ---
@@ -420,18 +481,28 @@ import { ComparisonRun } from "../entities/ComparisonRun";
 import { User } from "../entities/User";
 import { AuthRequest } from "../utils/authMiddleware";
 import {
-  benchmarkDir, benchmarkGtPath, benchmarkImagesDir, benchmarkReportPath, ensureBenchmarkDir,
+  benchmarkDir,
+  benchmarkGtPath,
+  benchmarkImagesDir,
+  benchmarkReportPath,
+  ensureBenchmarkDir,
 } from "../services/benchmarkStorage";
 import { readJson, writeJson } from "../services/runStorage";
-import { startBenchmark, cancelBenchmark, subscribe } from "../services/benchmarkWorker";
+import {
+  startBenchmark,
+  cancelBenchmark,
+  subscribe,
+} from "../services/benchmarkWorker";
 import { toCsv, toLatex } from "../services/reportExport";
 
 export const createBenchmark = async (req: AuthRequest, res: Response) => {
   const { name, documentType } = req.body;
   if (!name || !documentType) {
-    return res.status(400).json({ error: "name and documentType are required" });
+    return res
+      .status(400)
+      .json({ error: "name and documentType are required" });
   }
-  const user = req.userId ? await User.findOneBy({ id: req.userId }) : null;
+  const user = req.userId ? await User.findOne({ id: req.userId }) : null;
   const bm = Benchmark.create({ name, documentType, storageDir: "", user });
   await bm.save();
   bm.storageDir = String(bm.id);
@@ -447,9 +518,12 @@ export const listBenchmarks = async (_req: Request, res: Response) => {
 
 export const getBenchmark = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const bm = await Benchmark.findOneBy({ id });
+  const bm = await Benchmark.findOne({ id });
   if (!bm) return res.status(404).json({ error: "Not found" });
-  const items = await ComparisonRun.find({ where: { benchmarkId: id }, order: { id: "ASC" } });
+  const items = await ComparisonRun.find({
+    where: { benchmarkId: id },
+    order: { id: "ASC" },
+  });
   const report = await readJson(benchmarkReportPath(id));
   res.json({ benchmark: bm, items, report });
 };
@@ -460,7 +534,7 @@ export const getBenchmark = async (req: Request, res: Response) => {
  */
 export const uploadItems = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const bm = await Benchmark.findOneBy({ id });
+  const bm = await Benchmark.findOne({ id });
   if (!bm) return res.status(404).json({ error: "Not found" });
   if (!req.file) return res.status(400).json({ error: "Zip file is required" });
 
@@ -480,8 +554,9 @@ export const uploadItems = async (req: Request, res: Response) => {
     }
   }
   await fs.promises.unlink(req.file.path).catch(() => {});
-  const files = (await fs.promises.readdir(benchmarkImagesDir(id)))
-    .filter((f) => /\.(jpe?g|png|webp|bmp)$/i.test(f));
+  const files = (await fs.promises.readdir(benchmarkImagesDir(id))).filter(
+    (f) => /\.(jpe?g|png|webp|bmp)$/i.test(f),
+  );
   bm.totalItems = files.length;
   await bm.save();
   res.json({ benchmark: bm, uploadedFiles: files });
@@ -489,7 +564,7 @@ export const uploadItems = async (req: Request, res: Response) => {
 
 export const runBenchmark = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const bm = await Benchmark.findOneBy({ id });
+  const bm = await Benchmark.findOne({ id });
   if (!bm) return res.status(404).json({ error: "Not found" });
   startBenchmark(id).catch((err) => console.error("benchmark failed", err));
   res.json({ started: true });
@@ -521,7 +596,10 @@ export const exportCsv = async (req: Request, res: Response) => {
   const items = await ComparisonRun.find({ where: { benchmarkId: id } });
   const csv = toCsv(items);
   res.setHeader("Content-Type", "text/csv");
-  res.setHeader("Content-Disposition", `attachment; filename="benchmark-${id}.csv"`);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="benchmark-${id}.csv"`,
+  );
   res.send(csv);
 };
 
@@ -532,18 +610,24 @@ export const exportLatex = async (req: Request, res: Response) => {
   if (!report) return res.status(404).json({ error: "Report not ready" });
   const latex = toLatex(report as any);
   res.setHeader("Content-Type", "text/plain");
-  res.setHeader("Content-Disposition", `attachment; filename="benchmark-${id}.tex"`);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="benchmark-${id}.tex"`,
+  );
   res.send(latex);
 };
 
 export const deleteBenchmark = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const bm = await Benchmark.findOneBy({ id });
+  const bm = await Benchmark.findOne({ id });
   if (!bm) return res.status(404).send();
   // delete child runs (and their folders)
   const runs = await ComparisonRun.find({ where: { benchmarkId: id } });
   const { removeRunDir } = await import("../services/runStorage");
-  for (const r of runs) { await removeRunDir(r.id); await r.remove(); }
+  for (const r of runs) {
+    await removeRunDir(r.id);
+    await r.remove();
+  }
   await fs.promises.rm(benchmarkDir(id), { recursive: true, force: true });
   await bm.remove();
   res.status(204).send();
@@ -558,23 +642,31 @@ import { Router } from "express";
 import multer from "multer";
 import { asyncHandler } from "../utils/asyncHandler";
 import {
-  createBenchmark, listBenchmarks, getBenchmark, uploadItems, runBenchmark,
-  cancelBenchmarkRoute, benchmarkStream, exportCsv, exportLatex, deleteBenchmark,
+  createBenchmark,
+  listBenchmarks,
+  getBenchmark,
+  uploadItems,
+  runBenchmark,
+  cancelBenchmarkRoute,
+  benchmarkStream,
+  exportCsv,
+  exportLatex,
+  deleteBenchmark,
 } from "../controllers/benchmarkController";
 
 const router = Router();
 const upload = multer({ dest: "tmp/" });
 
-router.get("/",     asyncHandler(listBenchmarks));
-router.post("/",    asyncHandler(createBenchmark));
-router.get("/:id",  asyncHandler(getBenchmark));
+router.get("/", asyncHandler(listBenchmarks));
+router.post("/", asyncHandler(createBenchmark));
+router.get("/:id", asyncHandler(getBenchmark));
 router.delete("/:id", asyncHandler(deleteBenchmark));
 
 router.post("/:id/items", upload.single("zip"), asyncHandler(uploadItems));
-router.post("/:id/run",    asyncHandler(runBenchmark));
+router.post("/:id/run", asyncHandler(runBenchmark));
 router.post("/:id/cancel", asyncHandler(cancelBenchmarkRoute));
-router.get("/:id/stream",  asyncHandler(benchmarkStream));
-router.get("/:id/export/csv",   asyncHandler(exportCsv));
+router.get("/:id/stream", asyncHandler(benchmarkStream));
+router.get("/:id/export/csv", asyncHandler(exportCsv));
 router.get("/:id/export/latex", asyncHandler(exportLatex));
 
 export default router;
@@ -598,30 +690,39 @@ router.use("/benchmarks", requireAuth, benchmarksRouter);
 import client from "./client";
 
 export const listBenchmarksApi = () => client.get("/api/benchmarks");
-export const createBenchmarkApi = (payload) => client.post("/api/benchmarks", payload);
+export const createBenchmarkApi = (payload) =>
+  client.post("/api/benchmarks", payload);
 export const getBenchmarkApi = (id) => client.get(`/api/benchmarks/${id}`);
-export const deleteBenchmarkApi = (id) => client.delete(`/api/benchmarks/${id}`);
+export const deleteBenchmarkApi = (id) =>
+  client.delete(`/api/benchmarks/${id}`);
 
 export const uploadBenchmarkZip = (id, zipFile, onProgress) => {
   const form = new FormData();
   form.append("zip", zipFile);
   return client.post(`/api/benchmarks/${id}/items`, form, {
     timeout: 300_000,
-    onUploadProgress: (evt) => onProgress && evt.total && onProgress(evt.loaded / evt.total),
+    onUploadProgress: (evt) =>
+      onProgress && evt.total && onProgress(evt.loaded / evt.total),
   });
 };
 
-export const startBenchmarkApi = (id) => client.post(`/api/benchmarks/${id}/run`);
-export const cancelBenchmarkApi = (id) => client.post(`/api/benchmarks/${id}/cancel`);
-export const downloadCsvUrl   = (id) => `${client.defaults.baseURL}/api/benchmarks/${id}/export/csv`;
-export const downloadLatexUrl = (id) => `${client.defaults.baseURL}/api/benchmarks/${id}/export/latex`;
+export const startBenchmarkApi = (id) =>
+  client.post(`/api/benchmarks/${id}/run`);
+export const cancelBenchmarkApi = (id) =>
+  client.post(`/api/benchmarks/${id}/cancel`);
+export const downloadCsvUrl = (id) =>
+  `${client.defaults.baseURL}/api/benchmarks/${id}/export/csv`;
+export const downloadLatexUrl = (id) =>
+  `${client.defaults.baseURL}/api/benchmarks/${id}/export/latex`;
 
 /** Open an EventSource for live progress. */
 export const openBenchmarkStream = (id, onEvent) => {
   const url = `${client.defaults.baseURL}/api/benchmarks/${id}/stream`;
   const es = new EventSource(url, { withCredentials: false });
   es.onmessage = (ev) => {
-    try { onEvent(JSON.parse(ev.data)); } catch {}
+    try {
+      onEvent(JSON.parse(ev.data));
+    } catch {}
   };
   return es;
 };
@@ -636,6 +737,7 @@ export const openBenchmarkStream = (id, onEvent) => {
 >
 > To allow the stream without auth: split `benchmarks.ts` so the `stream`
 > route is mounted **before** `requireAuth`. Example tweak in `routes/index.ts`:
+>
 > ```ts
 > router.get("/benchmarks/:id/stream", asyncHandler(benchmarkStream));
 > router.use("/benchmarks", requireAuth, benchmarksRouter);
@@ -646,52 +748,84 @@ export const openBenchmarkStream = (id, onEvent) => {
 ```js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import {
-  listBenchmarksApi, createBenchmarkApi, getBenchmarkApi, deleteBenchmarkApi,
+  listBenchmarksApi,
+  createBenchmarkApi,
+  getBenchmarkApi,
+  deleteBenchmarkApi,
 } from "../../api/benchmarks";
 
 export const loadBenchmarks = createAsyncThunk("benchmarks/load", async () => {
-  const { data } = await listBenchmarksApi(); return data;
+  const { data } = await listBenchmarksApi();
+  return data;
 });
 
 export const createBenchmark = createAsyncThunk(
   "benchmarks/create",
   async (payload, { rejectWithValue }) => {
-    try { const { data } = await createBenchmarkApi(payload); return data; }
-    catch (err) { return rejectWithValue(err.response?.data?.error || err.message); }
-  }
+    try {
+      const { data } = await createBenchmarkApi(payload);
+      return data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.error || err.message);
+    }
+  },
 );
 
 export const loadBenchmarkDetail = createAsyncThunk(
   "benchmarks/detail",
-  async (id) => { const { data } = await getBenchmarkApi(id); return data; }
+  async (id) => {
+    const { data } = await getBenchmarkApi(id);
+    return data;
+  },
 );
 
 export const deleteBenchmark = createAsyncThunk(
   "benchmarks/delete",
-  async (id) => { await deleteBenchmarkApi(id); return id; }
+  async (id) => {
+    await deleteBenchmarkApi(id);
+    return id;
+  },
 );
 
 const slice = createSlice({
   name: "benchmarks",
   initialState: {
-    items: [], status: "idle",
-    detail: null, detailStatus: "idle",
+    items: [],
+    status: "idle",
+    detail: null,
+    detailStatus: "idle",
     progressEvents: [], // appended by the stream
   },
   reducers: {
-    pushEvent(s, a) { s.progressEvents.push(a.payload); },
-    clearEvents(s)  { s.progressEvents = []; },
-    setDetail(s, a) { s.detail = a.payload; },
+    pushEvent(s, a) {
+      s.progressEvents.push(a.payload);
+    },
+    clearEvents(s) {
+      s.progressEvents = [];
+    },
+    setDetail(s, a) {
+      s.detail = a.payload;
+    },
   },
   extraReducers: (b) => {
-    b.addCase(loadBenchmarks.fulfilled, (s, a) => { s.items = a.payload; s.status = "ok"; })
-     .addCase(createBenchmark.fulfilled, (s, a) => { s.items.unshift(a.payload); })
-     .addCase(loadBenchmarkDetail.pending,   (s) => { s.detailStatus = "loading"; })
-     .addCase(loadBenchmarkDetail.fulfilled, (s, a) => { s.detailStatus = "ok"; s.detail = a.payload; })
-     .addCase(deleteBenchmark.fulfilled, (s, a) => {
+    b.addCase(loadBenchmarks.fulfilled, (s, a) => {
+      s.items = a.payload;
+      s.status = "ok";
+    })
+      .addCase(createBenchmark.fulfilled, (s, a) => {
+        s.items.unshift(a.payload);
+      })
+      .addCase(loadBenchmarkDetail.pending, (s) => {
+        s.detailStatus = "loading";
+      })
+      .addCase(loadBenchmarkDetail.fulfilled, (s, a) => {
+        s.detailStatus = "ok";
+        s.detail = a.payload;
+      })
+      .addCase(deleteBenchmark.fulfilled, (s, a) => {
         s.items = s.items.filter((b) => b.id !== a.payload);
         if (s.detail?.benchmark?.id === a.payload) s.detail = null;
-     });
+      });
   },
 });
 
@@ -712,11 +846,26 @@ Minimal skeleton; style to taste:
 ```jsx
 // react/src/pages/BenchmarksPage.jsx
 import React, { useEffect, useState } from "react";
-import { Button, Table, Modal, Form, Input, Select, Tag, Space, Popconfirm, message } from "antd";
+import {
+  Button,
+  Table,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Tag,
+  Space,
+  Popconfirm,
+  message,
+} from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { loadBenchmarks, createBenchmark, deleteBenchmark } from "../features/benchmarks/benchmarksSlice";
+import {
+  loadBenchmarks,
+  createBenchmark,
+  deleteBenchmark,
+} from "../features/benchmarks/benchmarksSlice";
 import { loadDocumentTypes } from "../features/documentTypes/documentTypesSlice";
 
 export default function BenchmarksPage() {
@@ -727,37 +876,71 @@ export default function BenchmarksPage() {
   const [form] = Form.useForm();
   const [open, setOpen] = useState(false);
 
-  useEffect(() => { dispatch(loadBenchmarks()); dispatch(loadDocumentTypes()); }, [dispatch]);
+  useEffect(() => {
+    dispatch(loadBenchmarks());
+    dispatch(loadDocumentTypes());
+  }, [dispatch]);
 
   const submit = async () => {
     const vals = await form.validateFields();
     const created = await dispatch(createBenchmark(vals)).unwrap();
     message.success("Benchmark created");
-    setOpen(false); form.resetFields();
+    setOpen(false);
+    form.resetFields();
     navigate(`/benchmarks/${created.id}`);
   };
 
   return (
     <div>
-      <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)} style={{ marginBottom: 16 }}>
+      <Button
+        type="primary"
+        icon={<PlusOutlined />}
+        onClick={() => setOpen(true)}
+        style={{ marginBottom: 16 }}
+      >
         New benchmark
       </Button>
       <Table
         rowKey="id"
         dataSource={items}
-        onRow={(r) => ({ onDoubleClick: () => navigate(`/benchmarks/${r.id}`) })}
+        onRow={(r) => ({
+          onDoubleClick: () => navigate(`/benchmarks/${r.id}`),
+        })}
         columns={[
           { title: "ID", dataIndex: "id", width: 80 },
           { title: "Name", dataIndex: "name" },
-          { title: "Doc type", dataIndex: "documentType", width: 120, render: (v) => <Tag>{v}</Tag> },
-          { title: "Items", render: (_, r) => `${r.doneItems}/${r.totalItems} (${r.failedItems} failed)` },
-          { title: "Status", dataIndex: "status", render: (v) => <Tag>{v}</Tag> },
-          { title: "Created", dataIndex: "createdAt", render: (d) => new Date(d).toLocaleString() },
           {
-            title: "Actions", render: (_, r) => (
+            title: "Doc type",
+            dataIndex: "documentType",
+            width: 120,
+            render: (v) => <Tag>{v}</Tag>,
+          },
+          {
+            title: "Items",
+            render: (_, r) =>
+              `${r.doneItems}/${r.totalItems} (${r.failedItems} failed)`,
+          },
+          {
+            title: "Status",
+            dataIndex: "status",
+            render: (v) => <Tag>{v}</Tag>,
+          },
+          {
+            title: "Created",
+            dataIndex: "createdAt",
+            render: (d) => new Date(d).toLocaleString(),
+          },
+          {
+            title: "Actions",
+            render: (_, r) => (
               <Space>
-                <Button onClick={() => navigate(`/benchmarks/${r.id}`)}>Open</Button>
-                <Popconfirm title="Delete benchmark and all its runs?" onConfirm={() => dispatch(deleteBenchmark(r.id))}>
+                <Button onClick={() => navigate(`/benchmarks/${r.id}`)}>
+                  Open
+                </Button>
+                <Popconfirm
+                  title="Delete benchmark and all its runs?"
+                  onConfirm={() => dispatch(deleteBenchmark(r.id))}
+                >
                   <Button danger>Delete</Button>
                 </Popconfirm>
               </Space>
@@ -766,11 +949,25 @@ export default function BenchmarksPage() {
         ]}
       />
 
-      <Modal open={open} onOk={submit} onCancel={() => setOpen(false)} title="New benchmark" destroyOnClose>
+      <Modal
+        open={open}
+        onOk={submit}
+        onCancel={() => setOpen(false)}
+        title="New benchmark"
+        destroyOnClose
+      >
         <Form form={form} layout="vertical">
-          <Form.Item name="name" label="Name" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="documentType" label="Document type" rules={[{ required: true }]}>
-            <Select options={docTypes.map((d) => ({ value: d.key, label: d.name }))} />
+          <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="documentType"
+            label="Document type"
+            rules={[{ required: true }]}
+          >
+            <Select
+              options={docTypes.map((d) => ({ value: d.key, label: d.name }))}
+            />
           </Form.Item>
         </Form>
       </Modal>
@@ -789,14 +986,39 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  Card, Upload, Button, Progress, Table, Tag, Space, message, Statistic, Row, Col, Descriptions,
+  Card,
+  Upload,
+  Button,
+  Progress,
+  Table,
+  Tag,
+  Space,
+  message,
+  Statistic,
+  Row,
+  Col,
+  Descriptions,
 } from "antd";
-import { UploadOutlined, PlayCircleOutlined, StopOutlined, FileExcelOutlined, FileTextOutlined } from "@ant-design/icons";
 import {
-  uploadBenchmarkZip, startBenchmarkApi, cancelBenchmarkApi,
-  openBenchmarkStream, downloadCsvUrl, downloadLatexUrl,
+  UploadOutlined,
+  PlayCircleOutlined,
+  StopOutlined,
+  FileExcelOutlined,
+  FileTextOutlined,
+} from "@ant-design/icons";
+import {
+  uploadBenchmarkZip,
+  startBenchmarkApi,
+  cancelBenchmarkApi,
+  openBenchmarkStream,
+  downloadCsvUrl,
+  downloadLatexUrl,
 } from "../api/benchmarks";
-import { loadBenchmarkDetail, pushEvent, clearEvents } from "../features/benchmarks/benchmarksSlice";
+import {
+  loadBenchmarkDetail,
+  pushEvent,
+  clearEvents,
+} from "../features/benchmarks/benchmarksSlice";
 
 export default function BenchmarkDetailPage() {
   const { id } = useParams();
@@ -827,18 +1049,26 @@ export default function BenchmarkDetailPage() {
 
   return (
     <Space direction="vertical" style={{ width: "100%" }}>
-      <Card title={`${bm.name}  (${bm.documentType})`} extra={<Tag>{bm.status}</Tag>}>
+      <Card
+        title={`${bm.name}  (${bm.documentType})`}
+        extra={<Tag>{bm.status}</Tag>}
+      >
         <Space wrap>
           <Upload
-            accept=".zip" maxCount={1}
-            beforeUpload={(f) => { setZip(f); return false; }}
+            accept=".zip"
+            maxCount={1}
+            beforeUpload={(f) => {
+              setZip(f);
+              return false;
+            }}
             fileList={zip ? [zip] : []}
             onRemove={() => setZip(null)}
           >
             <Button icon={<UploadOutlined />}>Select .zip</Button>
           </Upload>
           <Button
-            type="primary" disabled={!zip || uploading}
+            type="primary"
+            disabled={!zip || uploading}
             loading={uploading}
             onClick={async () => {
               setUploading(true);
@@ -847,18 +1077,43 @@ export default function BenchmarkDetailPage() {
                 message.success("Zip uploaded");
                 setZip(null);
                 dispatch(loadBenchmarkDetail(bid));
-              } catch (err) { message.error(err.response?.data?.error || err.message); }
-              finally { setUploading(false); }
+              } catch (err) {
+                message.error(err.response?.data?.error || err.message);
+              } finally {
+                setUploading(false);
+              }
             }}
           >
             Upload
           </Button>
-          <Button icon={<PlayCircleOutlined />} disabled={bm.status === "running"} onClick={() => startBenchmarkApi(bid)}>Run</Button>
-          <Button icon={<StopOutlined />} disabled={bm.status !== "running"} onClick={() => cancelBenchmarkApi(bid)}>Cancel</Button>
-          <a href={downloadCsvUrl(bid)}>   <Button icon={<FileExcelOutlined />}>Export CSV</Button>   </a>
-          <a href={downloadLatexUrl(bid)}> <Button icon={<FileTextOutlined />}>Export LaTeX</Button> </a>
+          <Button
+            icon={<PlayCircleOutlined />}
+            disabled={bm.status === "running"}
+            onClick={() => startBenchmarkApi(bid)}
+          >
+            Run
+          </Button>
+          <Button
+            icon={<StopOutlined />}
+            disabled={bm.status !== "running"}
+            onClick={() => cancelBenchmarkApi(bid)}
+          >
+            Cancel
+          </Button>
+          <a href={downloadCsvUrl(bid)}>
+            {" "}
+            <Button icon={<FileExcelOutlined />}>Export CSV</Button>{" "}
+          </a>
+          <a href={downloadLatexUrl(bid)}>
+            {" "}
+            <Button icon={<FileTextOutlined />}>Export LaTeX</Button>{" "}
+          </a>
         </Space>
-        <Progress percent={progress} status={bm.status === "failed" ? "exception" : undefined} style={{ marginTop: 16 }} />
+        <Progress
+          percent={progress}
+          status={bm.status === "failed" ? "exception" : undefined}
+          style={{ marginTop: 16 }}
+        />
       </Card>
 
       {report && (
@@ -869,10 +1124,14 @@ export default function BenchmarkDetailPage() {
                 <Card type="inner" title={p.approach.toUpperCase()}>
                   <Descriptions column={1} size="small">
                     <Descriptions.Item label="Mean accuracy">
-                      {p.accuracy_mean == null ? "—" : (p.accuracy_mean * 100).toFixed(1) + "%"}
+                      {p.accuracy_mean == null
+                        ? "—"
+                        : (p.accuracy_mean * 100).toFixed(1) + "%"}
                     </Descriptions.Item>
                     <Descriptions.Item label="Latency mean">
-                      {p.latency_mean_ms == null ? "—" : p.latency_mean_ms.toFixed(0) + " ms"}
+                      {p.latency_mean_ms == null
+                        ? "—"
+                        : p.latency_mean_ms.toFixed(0) + " ms"}
                     </Descriptions.Item>
                     <Descriptions.Item label="p50 / p95">
                       {p.latency_p50_ms ?? "—"} / {p.latency_p95_ms ?? "—"} ms
@@ -893,18 +1152,46 @@ export default function BenchmarkDetailPage() {
           columns={[
             { title: "Run", dataIndex: "id", width: 80 },
             { title: "File", dataIndex: "filename" },
-            { title: "GT", dataIndex: "hasGroundTruth", render: (v) => v ? "✓" : "—" },
-            { title: "C", width: 70, render: (_, r) => r.summary ? (r.summary.classical * 100).toFixed(0) + "%" : "—" },
-            { title: "V", width: 70, render: (_, r) => r.summary ? (r.summary.vlm       * 100).toFixed(0) + "%" : "—" },
-            { title: "H", width: 70, render: (_, r) => r.summary ? (r.summary.hybrid    * 100).toFixed(0) + "%" : "—" },
-            { title: "Rec.", dataIndex: "recommended", render: (v) => v ? <Tag color="green">{v}</Tag> : "—" },
+            {
+              title: "GT",
+              dataIndex: "hasGroundTruth",
+              render: (v) => (v ? "✓" : "—"),
+            },
+            {
+              title: "C",
+              width: 70,
+              render: (_, r) =>
+                r.summary ? (r.summary.classical * 100).toFixed(0) + "%" : "—",
+            },
+            {
+              title: "V",
+              width: 70,
+              render: (_, r) =>
+                r.summary ? (r.summary.vlm * 100).toFixed(0) + "%" : "—",
+            },
+            {
+              title: "H",
+              width: 70,
+              render: (_, r) =>
+                r.summary ? (r.summary.hybrid * 100).toFixed(0) + "%" : "—",
+            },
+            {
+              title: "Rec.",
+              dataIndex: "recommended",
+              render: (v) => (v ? <Tag color="green">{v}</Tag> : "—"),
+            },
           ]}
         />
       </Card>
 
       <Card title="Live events" size="small">
-        <pre style={{ maxHeight: 200, overflow: "auto", fontSize: 12, margin: 0 }}>
-          {progressEvents.slice(-200).map((e, i) => JSON.stringify(e)).join("\n")}
+        <pre
+          style={{ maxHeight: 200, overflow: "auto", fontSize: 12, margin: 0 }}
+        >
+          {progressEvents
+            .slice(-200)
+            .map((e, i) => JSON.stringify(e))
+            .join("\n")}
         </pre>
       </Card>
     </Space>
