@@ -8,6 +8,8 @@
   "MODELS_BASE_PATH": "D:/Master/service/api/tmp",
   "DETECTION_SERVICE_URL": "http://localhost:8000",
   "COMPARE_SERVICE_URL": "https://np22ll-35-231-49-49.ru.tuna.am",
+  "PUBLIC_API_URL": "http://localhost:3000/api",
+  "COLAB_SYNC_TOKEN": "change-me-to-a-long-random-string",
   "RUNS_BASE_PATH": "D:/Master/service/application/api/tmp/runs",
   "db": {
     "type": "postgres",

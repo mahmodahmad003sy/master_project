@@ -11,6 +11,11 @@ import modelsRouter from "./models";
 import runsRouter, { getPublicImage, getPublicRun } from "./runs";
 import { requireAuth } from "../utils/authMiddleware";
 import { asyncHandler } from "../utils/asyncHandler";
+import { requireSyncToken } from "../utils/syncTokenMiddleware";
+import {
+  downloadModelFile,
+  listActiveModels,
+} from "../controllers/modelController";
 
 const router = Router();
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
@@ -20,6 +25,12 @@ router.use("/auth", authRouter);
 router.use("/download", downloadRouter);
 router.get("/public/runs/:id", asyncHandler(getPublicRun));
 router.get("/public/runs/:id/image", asyncHandler(getPublicImage));
+router.get("/models/active", requireSyncToken, asyncHandler(listActiveModels));
+router.get(
+  "/models/:modelId/download",
+  requireSyncToken,
+  asyncHandler(downloadModelFile)
+);
 router.use("/models", requireAuth, modelsRouter);
 router.use("/document-types", requireAuth, documentTypesRouter);
 router.use("/analytics", requireAuth, analyticsRouter);
