@@ -5,6 +5,7 @@ import path from "path";
 import { Model } from "../entities/Model";
 import { DocumentType } from "../entities/DocumentType";
 import config from "./../../config/default.json";
+import { collectCanonicalLabels } from "../services/documentTypeValidation";
 
 export interface CreateModelParams {
   name: string;
@@ -44,24 +45,6 @@ const computeSha256 = async (filePath: string): Promise<string> => {
   });
 
   return hash.digest("hex");
-};
-
-const collectCanonicalLabels = (docType: DocumentType): Set<string> => {
-  const labels = new Set<string>();
-  const schema: any = docType.schema ?? {};
-
-  for (const field of schema.fields ?? []) {
-    if (field?.key) labels.add(field.key);
-  }
-
-  for (const arrayField of schema.arrays ?? []) {
-    if (arrayField?.key) labels.add(arrayField.key);
-    for (const field of arrayField?.fields ?? []) {
-      if (field?.key) labels.add(field.key);
-    }
-  }
-
-  return labels;
 };
 
 export const createModel = async (
