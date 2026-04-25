@@ -39,6 +39,18 @@ export class ComparisonRun extends BaseEntity {
   @Column({ name: "document_type" })
   documentType!: string;
 
+  @Column({ name: "document_type_version", type: "int", nullable: true })
+  documentTypeVersion?: number;
+
+  @Column({ name: "detector_model_id", type: "int", nullable: true })
+  detectorModelId?: number;
+
+  @Column({ name: "detector_model_version", type: "int", nullable: true })
+  detectorModelVersion?: number;
+
+  @Column({ name: "prompt_version", type: "int", nullable: true })
+  promptVersion?: number;
+
   @Column({ type: "json", nullable: true })
   timings!: Record<string, number> | null;
 

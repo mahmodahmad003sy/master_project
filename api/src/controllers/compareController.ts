@@ -5,6 +5,7 @@ import path from "path";
 import config from "../../config/default.json";
 import { ComparisonRun } from "../entities/ComparisonRun";
 import { DocumentType } from "../entities/DocumentType";
+import { Model } from "../entities/Model";
 import { User } from "../entities/User";
 import {
   artifactPath,
@@ -19,6 +20,8 @@ const COMPARE_BASE_URL = String(
 );
 const COMPARE_URL = `${COMPARE_BASE_URL.replace(/\/+$/, "")}/compare`;
 const COMPARE_TIMEOUT_MS = 10 * 60 * 1000;
+const PUBLIC_API_URL = String(config.PUBLIC_API_URL ?? "").replace(/\/+$/, "");
+const COLAB_SYNC_TOKEN = String(config.COLAB_SYNC_TOKEN ?? "");
 
 function extractTimings(response: any): Record<string, number> | null {
   const raw =
@@ -80,9 +83,67 @@ function shouldRetryCompareRequest(error: any): boolean {
   );
 }
 
+function extractErrorReason(error: any): string {
+  const data = error?.response?.data;
+
+  if (typeof data === "string" && data.trim()) {
+    return data.trim();
+  }
+
+  if (data && typeof data === "object") {
+    if (typeof data.message === "string" && data.message.trim()) {
+      return data.message.trim();
+    }
+    if (typeof data.error === "string" && data.error.trim()) {
+      return data.error.trim();
+    }
+    if (typeof data.detail === "string" && data.detail.trim()) {
+      return data.detail.trim();
+    }
+  }
+
+  return "unknown reason";
+}
+
+function mapCompareServiceError(error: any) {
+  const status = Number(error?.response?.status ?? 0);
+
+  if (status === 400) {
+    return {
+      statusCode: 502,
+      message: `compare service rejected request: ${extractErrorReason(error)}`,
+      details: toCompareError(error),
+    };
+  }
+
+  if (status >= 500) {
+    return {
+      statusCode: 502,
+      message: `compare service failed: ${status}`,
+      details: toCompareError(error),
+    };
+  }
+
+  if (!status) {
+    return {
+      statusCode: 503,
+      message: "compare service unreachable",
+      details: toCompareError(error),
+    };
+  }
+
+  return {
+    statusCode: 502,
+    message: `compare service failed: ${status}`,
+    details: toCompareError(error),
+  };
+}
+
 async function postCompareRequest(
   destinationImagePath: string,
   originalname: string,
+  documentType: DocumentType,
+  model: Model,
   mimetype?: string | null,
 ): Promise<any> {
   const fileBuffer = await fs.promises.readFile(destinationImagePath);
@@ -92,6 +153,26 @@ async function postCompareRequest(
     contentType: mimetype || "application/octet-stream",
     knownLength: fileBuffer.length,
   });
+  form.append("documentTypeKey", documentType.key);
+  form.append("documentTypeVersion", String(documentType.version ?? 1));
+  form.append("schema", JSON.stringify(documentType.schema ?? {}));
+  form.append("promptTemplate", documentType.promptTemplate ?? "");
+  form.append("promptVersion", String(documentType.version ?? 1));
+  form.append("modelId", String(model.id));
+  form.append("modelVersion", String(model.version ?? 1));
+  form.append("modelSha256", model.sha256 ?? "");
+  form.append("modelDownloadUrl", `${PUBLIC_API_URL}/models/${model.id}/download`);
+  form.append("syncToken", COLAB_SYNC_TOKEN);
+  form.append("classMap", JSON.stringify(model.classMap ?? {}));
+  form.append(
+    "labelRoles",
+    JSON.stringify(documentType.detectorConfig?.labelRoles ?? {}),
+  );
+  form.append(
+    "groupingRules",
+    JSON.stringify(documentType.detectorConfig?.groupingRules ?? {}),
+  );
+  form.append("fieldConfig", JSON.stringify(documentType.fieldConfig ?? {}));
 
   const contentLength = await new Promise<number>((resolve, reject) => {
     form.getLength((error, length) => {
@@ -128,15 +209,48 @@ export async function runCompare(opts: {
 }): Promise<{ run: ComparisonRun; response: any }> {
   const { file, documentTypeKey, userId, benchmarkId = null } = opts;
 
-  const documentType = await DocumentType.findOne({ key: documentTypeKey });
+  const documentType = await DocumentType.findOne({
+    where: { key: documentTypeKey },
+  });
   if (!documentType) {
     throw {
-      statusCode: 400,
-      message: `Unknown documentType "${documentTypeKey}"`,
+      statusCode: 404,
+      message: "document type not found",
     };
   }
 
-  const user = userId ? await User.findOne({ id: userId }) : null;
+  if (documentType.status !== "active") {
+    throw {
+      statusCode: 400,
+      message: `document type "${documentTypeKey}" is not active`,
+    };
+  }
+
+  if (!documentType.detectorModelId) {
+    throw {
+      statusCode: 400,
+      message: "document type has no detector model",
+    };
+  }
+
+  const model = await Model.findOne({
+    where: { id: documentType.detectorModelId },
+  });
+  if (!model || model.status !== "active") {
+    throw {
+      statusCode: 400,
+      message: "active detector model not available",
+    };
+  }
+
+  if (!model.sha256 || !model.filePath) {
+    throw {
+      statusCode: 400,
+      message: "detector model file is missing",
+    };
+  }
+
+  const user = userId ? await User.findOne({ where: { id: userId } }) : null;
   const run = ComparisonRun.create({
     user,
     filename: file.originalname,
@@ -166,6 +280,8 @@ export async function runCompare(opts: {
     const compareResponse = await postCompareRequest(
       destinationImagePath,
       file.originalname,
+      documentType,
+      model,
       file.mimetype,
     );
     response = compareResponse.data;
@@ -175,6 +291,8 @@ export async function runCompare(opts: {
         const retryResponse = await postCompareRequest(
           destinationImagePath,
           file.originalname,
+          documentType,
+          model,
           file.mimetype,
         );
         response = retryResponse.data;
@@ -188,11 +306,7 @@ export async function runCompare(opts: {
         error: toCompareError(finalError),
       });
       await run.save();
-      throw {
-        statusCode: 502,
-        message: "Compare service failed",
-        details: toCompareError(finalError),
-      };
+      throw mapCompareServiceError(finalError);
     }
   }
 
@@ -214,6 +328,10 @@ export async function runCompare(opts: {
   run.timings = extractTimings(response);
   run.recommended =
     response?.recommended_for_production ?? response?.recommended ?? null;
+  run.documentTypeVersion = documentType.version;
+  run.detectorModelId = model.id;
+  run.detectorModelVersion = model.version;
+  run.promptVersion = documentType.version;
   await run.save();
 
   return { run, response };
