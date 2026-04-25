@@ -49,3 +49,33 @@ NODE_API_URL = "https://abc.ngrok-free.app/api"
 
 Tunnel URLs usually change after restart unless you use a reserved domain. When
 that happens, update both `PUBLIC_API_URL` and `NODE_API_URL` together.
+
+## Seeding Receipts
+
+The receipt flow is seeded into the dynamic document-type model.
+
+1. Put the receipt detector weights at
+   `scripts/seed_assets/yolov11_receipt.pt` in the repo root.
+   This file is gitignored. It should be a copy of the Colab receipt weights
+   file `yolov11_text_detector_fixed2vlast.pt`.
+2. From `api/`, run `npm run seed` or `yarn seed`.
+3. The script creates or updates:
+   `receipt` document type
+   `receipt-yolov11-v1` detector model
+4. On success both are left in `active` status.
+
+If the seed asset is missing, the script fails with the expected absolute path.
+
+## Adding A Document Type
+
+The admin UI at `/document-types` is the normal way to add a new document type.
+Use the 5-step wizard to define:
+
+1. Basic info and prompt template
+2. Schema JSON
+3. Detector class map, label roles, and grouping rules
+4. Detector upload or selection
+5. Activation
+
+For Colab-backed compare runs, keep the Stage 5 networking setup in place so
+the notebook can sync active detector models from the Node API.

@@ -136,4 +136,51 @@ describe("scoreRun", () => {
     expect(metrics.summary.vlm).toBe(1);
     expect(metrics.summary.classical).toBeLessThan(0.5);
   });
+
+  test("works for a non-receipt invoice schema", () => {
+    const invoiceSchema = {
+      fields: [
+        { key: "INVOICE_NO", type: "text" },
+        { key: "AMOUNT", type: "money", tolerance: 0.01 },
+      ],
+      arrays: [
+        {
+          key: "ITEMS",
+          rowKey: "DESCRIPTION",
+          fields: [
+            { key: "DESCRIPTION", type: "text" },
+            { key: "QTY", type: "number" },
+          ],
+        },
+      ],
+    } as const;
+
+    const groundTruth = {
+      INVOICE_NO: "INV-42",
+      AMOUNT: "123.45",
+      ITEMS: [
+        { DESCRIPTION: "Widget", QTY: 2 },
+        { DESCRIPTION: "Cable", QTY: 1 },
+      ],
+    };
+    const ok = {
+      fields: {
+        INVOICE_NO: "INV-42",
+        AMOUNT: "123.45",
+        ITEMS: [
+          { DESCRIPTION: "Widget", QTY: 2 },
+          { DESCRIPTION: "Cable", QTY: 1 },
+        ],
+      },
+    };
+
+    const metrics = scoreRun(
+      { classical: ok, vlm: ok, hybrid: ok },
+      groundTruth,
+      invoiceSchema as any
+    );
+
+    expect(metrics.summary.classical).toBe(1);
+    expect(metrics.perApproach.classical?.arrays.ITEMS).toHaveLength(2);
+  });
 });

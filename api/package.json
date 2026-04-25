@@ -23,6 +23,7 @@
   },
   "scripts": {
     "start": "npx nodemon --exec npx ts-node src/app.ts",
+    "seed": "ts-node src/scripts/seedDocumentTypes.ts",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
     "tsc": "tsc"
