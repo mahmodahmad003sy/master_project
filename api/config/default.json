@@ -7,7 +7,7 @@
   },
   "MODELS_BASE_PATH": "D:/Master/service/api/tmp",
   "DETECTION_SERVICE_URL": "http://localhost:8000",
-  "COMPARE_SERVICE_URL": "https://e1bb-34-16-251-84.ngrok-free.app",
+  "COMPARE_SERVICE_URL": "https://np22ll-35-231-49-49.ru.tuna.am",
   "RUNS_BASE_PATH": "D:/Master/service/application/api/tmp/runs",
   "db": {
     "type": "postgres",

@@ -18,6 +18,7 @@ const COMPARE_BASE_URL = String(
   (config as { COMPARE_SERVICE_URL?: string }).COMPARE_SERVICE_URL ?? "",
 );
 const COMPARE_URL = `${COMPARE_BASE_URL.replace(/\/+$/, "")}/compare`;
+const COMPARE_TIMEOUT_MS = 10 * 60 * 1000;
 
 function extractTimings(response: any): Record<string, number> | null {
   const raw =
@@ -60,7 +61,63 @@ function toCompareError(error: any) {
     message: error?.message ?? "compare service unreachable",
     status: error?.response?.status ?? null,
     data: error?.response?.data ?? null,
+    code: error?.code ?? null,
   };
+}
+
+function shouldRetryCompareRequest(error: any): boolean {
+  const code = String(error?.code ?? "");
+  const message = String(error?.message ?? "").toLowerCase();
+
+  if (["ECONNRESET", "ECONNABORTED", "ETIMEDOUT", "EPIPE"].includes(code)) {
+    return true;
+  }
+
+  return (
+    message.includes("socket hang up") ||
+    message.includes("connection was aborted") ||
+    message.includes("send failure")
+  );
+}
+
+async function postCompareRequest(
+  destinationImagePath: string,
+  originalname: string,
+  mimetype?: string | null,
+): Promise<any> {
+  const fileBuffer = await fs.promises.readFile(destinationImagePath);
+  const form = new FormData();
+  form.append("file", fileBuffer, {
+    filename: originalname,
+    contentType: mimetype || "application/octet-stream",
+    knownLength: fileBuffer.length,
+  });
+
+  const contentLength = await new Promise<number>((resolve, reject) => {
+    form.getLength((error, length) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(length);
+    });
+  });
+
+  return axios.post(COMPARE_URL, form, {
+    headers: {
+      ...form.getHeaders(),
+      "Content-Length": String(contentLength),
+      "ngrok-skip-browser-warning": "1",
+    },
+    params: {
+      // The backend already stores artifacts locally, so the compare
+      // service does not need to write its own copies to disk.
+      save_to_disk: false,
+    },
+    timeout: COMPARE_TIMEOUT_MS,
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity,
+  });
 }
 
 export async function runCompare(opts: {
@@ -71,7 +128,7 @@ export async function runCompare(opts: {
 }): Promise<{ run: ComparisonRun; response: any }> {
   const { file, documentTypeKey, userId, benchmarkId = null } = opts;
 
-  const documentType = await DocumentType.findOneBy({ key: documentTypeKey });
+  const documentType = await DocumentType.findOne({ key: documentTypeKey });
   if (!documentType) {
     throw {
       statusCode: 400,
@@ -79,7 +136,7 @@ export async function runCompare(opts: {
     };
   }
 
-  const user = userId ? await User.findOneBy({ id: userId }) : null;
+  const user = userId ? await User.findOne({ id: userId }) : null;
   const run = ComparisonRun.create({
     user,
     filename: file.originalname,
@@ -104,41 +161,39 @@ export async function runCompare(opts: {
   const destinationImagePath = imagePath(run.id, run.imageName);
   await fs.promises.rename(file.path, destinationImagePath);
 
-  const form = new FormData();
-  form.append(
-    "file",
-    fs.createReadStream(destinationImagePath),
-    file.originalname,
-  );
-
   let response: any;
   try {
-    const compareResponse = await axios.post(COMPARE_URL, form, {
-      headers: {
-        ...form.getHeaders(),
-        "ngrok-skip-browser-warning": "1",
-      },
-      params: {
-        // The backend already stores artifacts locally, so the compare
-        // service does not need to write its own copies to disk.
-        save_to_disk: false,
-      },
-      timeout: 180_000,
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-    });
+    const compareResponse = await postCompareRequest(
+      destinationImagePath,
+      file.originalname,
+      file.mimetype,
+    );
     response = compareResponse.data;
   } catch (error) {
-    await writeJson(artifactPath(run.id, "raw_response"), {
-      ok: false,
-      error: toCompareError(error),
-    });
-    await run.save();
-    throw {
-      statusCode: 502,
-      message: "Compare service failed",
-      details: toCompareError(error),
-    };
+    try {
+      if (shouldRetryCompareRequest(error)) {
+        const retryResponse = await postCompareRequest(
+          destinationImagePath,
+          file.originalname,
+          file.mimetype,
+        );
+        response = retryResponse.data;
+      } else {
+        throw error;
+      }
+    } catch (finalError) {
+      await writeJson(artifactPath(run.id, "raw_response"), {
+        ok: false,
+        compareUrl: COMPARE_URL,
+        error: toCompareError(finalError),
+      });
+      await run.save();
+      throw {
+        statusCode: 502,
+        message: "Compare service failed",
+        details: toCompareError(finalError),
+      };
+    }
   }
 
   await writeJson(artifactPath(run.id, "raw_response"), response);
