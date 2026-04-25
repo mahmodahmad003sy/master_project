@@ -15,6 +15,8 @@ import ComparePage from "./pages/ComparePage";
 import BenchmarkDetailPage from "./pages/BenchmarkDetailPage";
 import BenchmarksPage from "./pages/BenchmarksPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import DocumentTypesPage from "./pages/DocumentTypesPage";
+import DocumentTypeWizard from "./pages/DocumentTypeWizard";
 import LoginPage from "./pages/LoginPage";
 import ModelsPage from "./pages/ModelsPage";
 import PresentationPage from "./pages/PresentationPage";
@@ -42,6 +44,8 @@ export default function App() {
       ? "/benchmarks"
     : pathname.startsWith("/analytics/")
       ? "/analytics"
+    : pathname.startsWith("/document-types/")
+      ? "/document-types"
     : pathname;
 
   return (
@@ -68,6 +72,9 @@ export default function App() {
             </Menu.Item>
             <Menu.Item key="/models">
               <Link to="/models">Models</Link>
+            </Menu.Item>
+            <Menu.Item key="/document-types">
+              <Link to="/document-types">Document Types</Link>
             </Menu.Item>
           </Menu>
 
@@ -100,6 +107,15 @@ export default function App() {
                   />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/models" element={<ModelsPage />} />
+                  <Route path="/document-types" element={<DocumentTypesPage />} />
+                  <Route
+                    path="/document-types/new"
+                    element={<DocumentTypeWizard />}
+                  />
+                  <Route
+                    path="/document-types/:id"
+                    element={<DocumentTypeWizard />}
+                  />
                   <Route path="/" element={<Navigate to="/compare" replace />} />
                   <Route path="*" element={<Navigate to="/compare" replace />} />
                 </Routes>

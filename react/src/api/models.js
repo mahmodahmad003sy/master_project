@@ -53,7 +53,9 @@ export const uploadDatasetApi = (id, file) => {
 export const uploadModelFileApi = (id, file) => {
   const form = new FormData();
   form.append("file", file);
-  return client.post(`/models/${id}/files`, form, {
+  return client.post(`/models/${id}/file`, form, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
+
+export const validateModelApi = (id) => client.post(`/models/${id}/validate`);
