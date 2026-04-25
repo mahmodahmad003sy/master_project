@@ -33,12 +33,7 @@ function getConfidence(data) {
     return null;
   }
 
-  if (typeof data.confidence === "number") {
-    return data.confidence;
-  }
-
-  const receiptConfidence = data?.meta?.confidence?.receipt_confidence;
-  return typeof receiptConfidence === "number" ? receiptConfidence : null;
+  return typeof data.confidence === "number" ? data.confidence : null;
 }
 
 export default function ApproachColumn({

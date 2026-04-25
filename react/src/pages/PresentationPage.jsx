@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Card, Col, Empty, Row, Spin, Typography } from "antd";
+import {
+  Alert,
+  Card,
+  Col,
+  Descriptions,
+  Empty,
+  Row,
+  Spin,
+  Typography,
+} from "antd";
 import { useParams, useSearchParams } from "react-router-dom";
 import { fetchPublicRunApi, publicRunImageSrc } from "../api/compare";
 import ApproachColumn from "../components/compare/ApproachColumn";
@@ -133,6 +142,25 @@ export default function PresentationPage() {
         </Title>
         <Text type="secondary">Public presentation view for run #{payload.run.id}</Text>
       </div>
+
+      <Card style={{ marginBottom: 16 }}>
+        <Descriptions column={2} size="small">
+          <Descriptions.Item label="Document Type">
+            {payload.run.documentType || "-"}{" "}
+            {payload.run.documentTypeVersion != null
+              ? `(v${payload.run.documentTypeVersion})`
+              : ""}
+          </Descriptions.Item>
+          <Descriptions.Item label="Detector Model">
+            {payload.run.detectorModelId != null
+              ? `#${payload.run.detectorModelId}`
+              : "-"}{" "}
+            {payload.run.detectorModelVersion != null
+              ? `(v${payload.run.detectorModelVersion})`
+              : ""}
+          </Descriptions.Item>
+        </Descriptions>
+      </Card>
 
       <RecommendedBanner recommended={payload.run.recommended} />
       <TimingBar timings={payload.run.timings} />

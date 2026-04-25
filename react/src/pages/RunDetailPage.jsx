@@ -4,12 +4,13 @@ import {
   Button,
   Card,
   Col,
+  Descriptions,
   Empty,
   Row,
   Space,
   Spin,
-  message,
   Typography,
+  message,
 } from "antd";
 import { ArrowLeftOutlined, LinkOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
@@ -171,6 +172,25 @@ export default function RunDetailPage() {
         runId={detail.run.id}
         initialGt={groundTruth}
       />
+
+      <Card style={{ marginBottom: 16 }}>
+        <Descriptions column={2} size="small">
+          <Descriptions.Item label="Document Type">
+            {detail.run.documentType || "-"}{" "}
+            {detail.run.documentTypeVersion != null
+              ? `(v${detail.run.documentTypeVersion})`
+              : ""}
+          </Descriptions.Item>
+          <Descriptions.Item label="Detector Model">
+            {detail.run.detectorModelId != null
+              ? `#${detail.run.detectorModelId}`
+              : "-"}{" "}
+            {detail.run.detectorModelVersion != null
+              ? `(v${detail.run.detectorModelVersion})`
+              : ""}
+          </Descriptions.Item>
+        </Descriptions>
+      </Card>
 
       <RecommendedBanner recommended={detail.run.recommended} />
       <TimingBar timings={detail.run.timings} />

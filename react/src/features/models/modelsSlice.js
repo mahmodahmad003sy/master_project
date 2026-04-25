@@ -6,13 +6,12 @@ import {
   deleteModelApi,
   uploadDatasetApi,
   uploadModelFileApi,
+  validateModelApi,
 } from "../../api/models";
 
 export const fetchAllModels = createAsyncThunk(
   "models/fetchAll",
   async (_, { rejectWithValue }) => {
-    console.log("dipatched");
-
     try {
       const res = await fetchModels();
       return res.data;
@@ -58,7 +57,6 @@ export const deleteModel = createAsyncThunk(
   }
 );
 
-// (optional) dataset & file uploads
 export const uploadDataset = createAsyncThunk(
   "models/uploadDataset",
   async ({ modelId, file }, { rejectWithValue }) => {
@@ -83,12 +81,28 @@ export const uploadModelFile = createAsyncThunk(
   }
 );
 
+export const validateModel = createAsyncThunk(
+  "models/validate",
+  async (id, { rejectWithValue }) => {
+    try {
+      const { data } = await validateModelApi(id);
+      return data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || "validate failed");
+    }
+  }
+);
+
 const initialState = {
   models: [],
   selectedModelId: null,
   status: "idle",
   error: null,
 };
+
+function replaceModel(models, nextModel) {
+  return models.map((model) => (model.id === nextModel.id ? nextModel : model));
+}
 
 const modelsSlice = createSlice({
   name: "models",
@@ -100,37 +114,39 @@ const modelsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // fetchAll
-      .addCase(fetchAllModels.pending, (s) => {
-        s.status = "loading";
-        s.error = null;
+      .addCase(fetchAllModels.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
       })
-      .addCase(fetchAllModels.fulfilled, (s, a) => {
-        s.status = "succeeded";
-        s.models = a.payload;
-        if (!s.selectedModelId && a.payload.length) {
-          s.selectedModelId = a.payload[0].id;
+      .addCase(fetchAllModels.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        state.models = action.payload;
+        if (!state.selectedModelId && action.payload.length) {
+          state.selectedModelId = action.payload[0].id;
         }
       })
-      .addCase(fetchAllModels.rejected, (s, a) => {
-        s.status = "failed";
-        s.error = a.payload;
+      .addCase(fetchAllModels.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
       })
-      // create
-      .addCase(createModel.fulfilled, (s, a) => {
-        s.models.push(a.payload);
-        s.selectedModelId = a.payload.id;
+      .addCase(createModel.fulfilled, (state, action) => {
+        state.models.push(action.payload);
+        state.selectedModelId = action.payload.id;
       })
-      // update
-      .addCase(updateModel.fulfilled, (s, a) => {
-        s.models = s.models.map((m) => (m.id === a.payload.id ? a.payload : m));
+      .addCase(updateModel.fulfilled, (state, action) => {
+        state.models = replaceModel(state.models, action.payload);
       })
-      // delete
-      .addCase(deleteModel.fulfilled, (s, a) => {
-        s.models = s.models.filter((m) => m.id !== a.payload);
-        if (s.selectedModelId === a.payload) {
-          s.selectedModelId = s.models[0]?.id || null;
+      .addCase(deleteModel.fulfilled, (state, action) => {
+        state.models = state.models.filter((model) => model.id !== action.payload);
+        if (state.selectedModelId === action.payload) {
+          state.selectedModelId = state.models[0]?.id || null;
         }
+      })
+      .addCase(uploadModelFile.fulfilled, (state, action) => {
+        state.models = replaceModel(state.models, action.payload.data);
+      })
+      .addCase(validateModel.fulfilled, (state, action) => {
+        state.models = replaceModel(state.models, action.payload);
       });
   },
 });

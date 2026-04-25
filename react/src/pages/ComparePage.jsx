@@ -18,6 +18,7 @@ import {
   LinkOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
+import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { createShareLinkApi, runImageSrc } from "../api/compare";
 import ApproachColumn from "../components/compare/ApproachColumn";
@@ -108,11 +109,22 @@ export default function ComparePage() {
     dispatch(loadDocumentTypes());
   }, [dispatch]);
 
+  const activeDocumentTypes = useMemo(
+    () =>
+      documentTypesState.items.filter((item) => item.status === "active"),
+    [documentTypesState.items]
+  );
+
   useEffect(() => {
-    if (!documentType && documentTypesState.items.length) {
-      setDocumentType(documentTypesState.items[0].key);
+    if (
+      documentType &&
+      activeDocumentTypes.find((item) => item.key === documentType)
+    ) {
+      return;
     }
-  }, [documentType, documentTypesState.items]);
+
+    setDocumentType(activeDocumentTypes[0]?.key ?? null);
+  }, [activeDocumentTypes, documentType]);
 
   useEffect(() => {
     if (comparisonState.status === "ok" && comparisonState.currentRunId) {
@@ -127,7 +139,7 @@ export default function ComparePage() {
     [dispatch]
   );
 
-  const schema = getSchemaFor(documentTypesState.items, documentType);
+  const schema = getSchemaFor(activeDocumentTypes, documentType);
   const byApproach = {
     classical: comparisonState.response?.main || null,
     vlm: comparisonState.response?.qwen || null,
@@ -202,63 +214,85 @@ export default function ComparePage() {
         extraction outputs side by side.
       </Text>
 
-      <Card style={{ marginTop: 16, marginBottom: 16 }}>
-        <Space wrap size="middle">
-          <Select
-            placeholder="Document type"
-            style={{ width: 220 }}
-            value={documentType}
-            onChange={setDocumentType}
-            loading={documentTypesState.status === "loading"}
-            options={documentTypesState.items.map((item) => ({
-              value: item.key,
-              label: item.name,
-            }))}
-          />
+      {documentTypesState.status === "fail" ? (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginTop: 16, marginBottom: 16 }}
+          message={String(documentTypesState.error)}
+        />
+      ) : null}
 
-          <Upload
-            accept="image/*"
-            beforeUpload={() => false}
-            fileList={fileList}
-            maxCount={1}
-            onChange={(info) => setFileList(info.fileList.slice(-1))}
+      {activeDocumentTypes.length === 0 &&
+      documentTypesState.status !== "loading" ? (
+        <Card style={{ marginTop: 16, marginBottom: 16 }}>
+          <Empty
+            description="No active document types"
           >
-            <Button icon={<UploadOutlined />}>Select image</Button>
-          </Upload>
+            <Button type="primary">
+              <Link to="/document-types">Go to Document Types</Link>
+            </Button>
+          </Empty>
+        </Card>
+      ) : (
+        <Card style={{ marginTop: 16, marginBottom: 16 }}>
+          <Space wrap size="middle">
+            <Select
+              placeholder="Document type"
+              style={{ width: 220 }}
+              value={documentType}
+              onChange={setDocumentType}
+              loading={documentTypesState.status === "loading"}
+              options={activeDocumentTypes.map((item) => ({
+                value: item.key,
+                label: item.name,
+              }))}
+            />
 
-          <Button
-            type="primary"
-            icon={<CloudUploadOutlined />}
-            onClick={handleRun}
-            loading={comparisonState.status === "running"}
-            disabled={!documentType || !fileList.length}
-          >
-            Run comparison
-          </Button>
+            <Upload
+              accept="image/*"
+              beforeUpload={() => false}
+              fileList={fileList}
+              maxCount={1}
+              onChange={(info) => setFileList(info.fileList.slice(-1))}
+            >
+              <Button icon={<UploadOutlined />}>Select image</Button>
+            </Upload>
 
-          <Button
-            onClick={() => setGroundTruthOpen(true)}
-            disabled={!comparisonState.currentRunId}
-          >
-            {groundTruth ? "Edit ground truth" : "Add ground truth"}
-          </Button>
+            <Button
+              type="primary"
+              icon={<CloudUploadOutlined />}
+              onClick={handleRun}
+              loading={comparisonState.status === "running"}
+              disabled={!documentType || !fileList.length}
+            >
+              Run comparison
+            </Button>
 
-          <Button
-            icon={<LinkOutlined />}
-            onClick={handleShare}
-            disabled={!comparisonState.currentRunId}
-          >
-            Share
-          </Button>
+            <Button
+              onClick={() => setGroundTruthOpen(true)}
+              disabled={!comparisonState.currentRunId}
+            >
+              {groundTruth ? "Edit ground truth" : "Add ground truth"}
+            </Button>
 
-          <Button
-            onClick={handleReset}
-            disabled={comparisonState.status === "running"}
-          >
-            Reset
-          </Button>
-        </Space>
-      </Card>
+            <Button
+              icon={<LinkOutlined />}
+              onClick={handleShare}
+              disabled={!comparisonState.currentRunId}
+            >
+              Share
+            </Button>
+
+            <Button
+              onClick={handleReset}
+              disabled={comparisonState.status === "running"}
+            >
+              Reset
+            </Button>
+          </Space>
+        </Card>
+      )}
 
       <GroundTruthDrawer
         open={groundTruthOpen}
@@ -266,15 +300,6 @@ export default function ComparePage() {
         runId={comparisonState.currentRunId}
         initialGt={groundTruth}
       />
-
-      {documentTypesState.status === "fail" ? (
-        <Alert
-          type="error"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message={String(documentTypesState.error)}
-        />
-      ) : null}
 
       {comparisonState.status === "fail" ? (
         <Alert

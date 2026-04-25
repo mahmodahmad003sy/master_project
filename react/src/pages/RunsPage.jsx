@@ -6,6 +6,7 @@ import {
   Popconfirm,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Tooltip,
@@ -18,8 +19,8 @@ import {
   EyeOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
+import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import { runImageSrc } from "../api/compare";
 import { loadDocumentTypes } from "../features/documentTypes/documentTypesSlice";
 import {
@@ -35,6 +36,10 @@ function formatSummaryScore(score) {
   return `${Math.round(score * 100)}%`;
 }
 
+function versionTag(value) {
+  return value != null ? <Tag>v{value}</Tag> : "-";
+}
+
 export default function RunsPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -47,6 +52,7 @@ export default function RunsPage() {
   const [documentType, setDocumentType] = useState(filters.documentType);
   const [hasGroundTruth, setHasGroundTruth] = useState(filters.hasGroundTruth);
   const [dateRange, setDateRange] = useState([null, null]);
+  const [showAdvancedColumns, setShowAdvancedColumns] = useState(false);
 
   useEffect(() => {
     dispatch(loadDocumentTypes());
@@ -94,6 +100,30 @@ export default function RunsPage() {
       message.error(String(error));
     }
   };
+
+  const advancedColumns = showAdvancedColumns
+    ? [
+        {
+          title: "Doc version",
+          dataIndex: "documentTypeVersion",
+          width: 100,
+          render: (value) => versionTag(value),
+        },
+        {
+          title: "Detector",
+          dataIndex: "detectorModelId",
+          width: 110,
+          render: (value) =>
+            value != null ? <Link to="/models">#{value}</Link> : "-",
+        },
+        {
+          title: "Detector version",
+          dataIndex: "detectorModelVersion",
+          width: 120,
+          render: (value) => versionTag(value),
+        },
+      ]
+    : [];
 
   const columns = [
     {
@@ -147,6 +177,7 @@ export default function RunsPage() {
       width: 120,
       render: (value) => <Tag>{value}</Tag>,
     },
+    ...advancedColumns,
     {
       title: "Best",
       key: "best",
@@ -274,6 +305,13 @@ export default function RunsPage() {
         </Button>
         <Button onClick={resetAll}>Reset</Button>
         <Button icon={<ReloadOutlined />} onClick={() => dispatch(loadRuns())} />
+        <Space size="small">
+          <span>Advanced columns</span>
+          <Switch
+            checked={showAdvancedColumns}
+            onChange={setShowAdvancedColumns}
+          />
+        </Space>
       </Space>
 
       <Table
