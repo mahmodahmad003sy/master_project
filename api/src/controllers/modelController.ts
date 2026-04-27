@@ -48,7 +48,7 @@ const computeSha256 = async (filePath: string): Promise<string> => {
 };
 
 export const createModel = async (
-  params: CreateModelParams
+  params: CreateModelParams,
 ): Promise<Model> => {
   const {
     name,
@@ -112,7 +112,7 @@ export const listModels = async (): Promise<Model[]> => {
 
 export const uploadModelFile = async (
   modelId: number,
-  file: Express.Multer.File
+  file: Express.Multer.File,
 ): Promise<Model> => {
   const model = await Model.findOne({ where: { id: modelId } });
   if (!model) throw { statusCode: 404, message: "Model not found" };
@@ -158,7 +158,7 @@ export const uploadModelFile = async (
 
 export const uploadDatasetFile = async (
   modelId: number,
-  file: Express.Multer.File
+  file: Express.Multer.File,
 ): Promise<{ datasetPath: string }> => {
   // 1. Ensure model exists
   const model = await Model.findOne({ where: { id: modelId } });
@@ -193,7 +193,7 @@ export const uploadDatasetFile = async (
 
 export const validateModel = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const id = Number(req.params.modelId);
   const model = await Model.findOne({ where: { id } });
@@ -242,7 +242,7 @@ export const validateModel = async (
 
 export const deleteModel = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const id = Number(req.params.modelId);
   const model = await Model.findOne({ where: { id } });
@@ -265,7 +265,7 @@ export const deleteModel = async (
 
 export const listActiveModels = async (
   _req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const models = await Model.find({ where: { status: "active" } });
   const publicBase = String(config.PUBLIC_API_URL ?? "").replace(/\/$/, "");
@@ -287,12 +287,11 @@ export const listActiveModels = async (
         documentTypeKey: docType.key,
         documentTypeVersion: (docType as any)?.version ?? 1,
         sha256: model.sha256,
-        fileSize:
-          model.fileSize == null ? null : Number(model.fileSize),
+        fileSize: model.fileSize == null ? null : Number(model.fileSize),
         downloadUrl: `${publicBase}/models/${model.id}/download`,
         classMap: model.classMap ?? {},
       };
-    })
+    }),
   );
 
   res.json(rows.filter(Boolean));
@@ -300,8 +299,11 @@ export const listActiveModels = async (
 
 export const downloadModelFile = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
+  console.log("====================================");
+  console.log("start downloding");
+  console.log("====================================");
   const id = Number(req.params.modelId);
   const model = await Model.findOne({ where: { id } });
   if (!model?.filePath || !(await pathExists(model.filePath))) {
@@ -314,6 +316,8 @@ export const downloadModelFile = async (
   if (model.fileSize != null) {
     res.setHeader("Content-Length", String(model.fileSize));
   }
-
+  console.log("====================================");
+  console.log({ path: model.filePath });
+  console.log("====================================");
   res.sendFile(path.resolve(model.filePath));
 };
