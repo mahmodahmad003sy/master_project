@@ -39,44 +39,45 @@ jobs:
             ${{ steps.meta.outputs.image_name }}:latest
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
     needs: publish
+    env:
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create server app directory
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT || '22' }}
-          script: mkdir -p "${{ secrets.SERVER_APP_DIR }}"
+      - name: Validate deploy path
+        shell: bash
+        run: |
+          if [ -z "$DEPLOY_PATH" ]; then
+            echo "DEPLOY_PATH repository variable is required"
+            exit 1
+          fi
 
-      - name: Upload compose file
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT || '22' }}
-          source: docker-compose.yml
-          target: ${{ secrets.SERVER_APP_DIR }}
+      - name: Prepare deployment files
+        shell: bash
+        run: |
+          mkdir -p "$DEPLOY_PATH"
+          cp docker-compose.yml "$DEPLOY_PATH/docker-compose.yml"
+          cat > "$DEPLOY_PATH/.env.production" <<'EOF'
+          ${{ secrets.PROD_ENV_FILE }}
+          EOF
 
-      - name: Deploy on server
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT || '22' }}
-          script: |
-            cat > "${{ secrets.SERVER_APP_DIR }}/.env.production" <<'EOF'
-            ${{ secrets.PROD_ENV_FILE }}
-            EOF
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-            cd "${{ secrets.SERVER_APP_DIR }}"
-            APP_IMAGE="${{ needs.publish.outputs.image_name }}:latest" docker compose --env-file .env.production pull app
-            APP_IMAGE="${{ needs.publish.outputs.image_name }}:latest" docker compose --env-file .env.production up -d
-            docker image prune -f
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy on self-hosted runner
+        shell: bash
+        run: |
+          cd "$DEPLOY_PATH"
+          APP_IMAGE="${{ needs.publish.outputs.image_name }}:latest" docker compose --env-file .env.production pull app
+          APP_IMAGE="${{ needs.publish.outputs.image_name }}:latest" docker compose --env-file .env.production up -d
+          docker image prune -f

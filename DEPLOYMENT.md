@@ -21,7 +21,23 @@ If GitHub asks for auth, use either GitHub Desktop, Git Credential Manager, or a
 - `.github/workflows/ci.yml`
 - `.github/workflows/deploy.yml`
 
-## 3. Production env file
+## 3. Deployment model
+
+This setup now assumes:
+
+- GitHub-hosted runner builds and pushes the Docker image to `ghcr.io`
+- a `self-hosted GitHub runner` runs inside your private network
+- that self-hosted runner has direct access to Docker on the deployment machine
+
+This is the right model for your VPN/internal server setup because GitHub-hosted runners cannot join your OpenVPN network.
+
+Best case:
+
+- install the self-hosted runner on the target server itself
+
+That avoids SSH completely during deploy.
+
+## 4. Production env file
 
 Create a local copy before the first deploy:
 
@@ -43,12 +59,13 @@ For Docker deployment, keep:
 - `MODELS_BASE_PATH=/app/api/tmp`
 - `RUNS_BASE_PATH=/app/api/tmp/runs`
 
-## 4. Server requirements
+## 5. Server requirements
 
 Install on the server:
 
 - Docker Engine
 - Docker Compose plugin
+- a self-hosted GitHub Actions runner
 
 Quick check:
 
@@ -57,26 +74,44 @@ docker --version
 docker compose version
 ```
 
-## 5. First server setup
+## 6. Self-hosted runner setup
 
-SSH into the server and create a deployment directory:
+In your GitHub repository:
+
+1. Open `Settings -> Actions -> Runners`
+2. Click `New self-hosted runner`
+3. Choose `Linux x64`
+4. Run the commands GitHub shows on the target server
+
+Important:
+
+- install the runner on the same machine that should run Docker, or on a machine that has direct Docker access to that host
+- keep the runner online as a service
+- make sure the runner has the labels `self-hosted`, `linux`, and `x64`
+
+## 7. First server setup
+
+Create a deployment directory on the machine that hosts the self-hosted runner:
 
 ```bash
 mkdir -p /opt/application
 ```
 
-That same path should be used as the GitHub secret `SERVER_APP_DIR`.
+That same path should be stored as the GitHub repository variable `DEPLOY_PATH`.
 
-## 6. GitHub secrets
+If Docker requires elevated permissions on that machine, run the runner service under a user that can access Docker.
+
+## 8. GitHub Actions settings
 
 In `GitHub -> Settings -> Secrets and variables -> Actions`, add:
 
-- `SERVER_HOST`
-- `SERVER_USER`
-- `SERVER_SSH_KEY`
-- `SERVER_PORT`
-- `SERVER_APP_DIR`
+Secrets:
+
 - `PROD_ENV_FILE`
+
+Variables:
+
+- `DEPLOY_PATH`
 
 `PROD_ENV_FILE` should contain the full contents of your `.env.production`, for example:
 
@@ -99,7 +134,13 @@ DB_SYNCHRONIZE=true
 DB_LOGGING=false
 ```
 
-## 7. What the workflows do
+Example variable:
+
+```text
+DEPLOY_PATH=/opt/application
+```
+
+## 9. What the workflows do
 
 `CI`:
 
@@ -110,19 +151,27 @@ DB_LOGGING=false
 `Deploy`:
 
 - builds and pushes the app image to GitHub Container Registry
-- uploads `docker-compose.yml` to the server
-- writes `.env.production` on the server from `PROD_ENV_FILE`
-- pulls the latest image and starts the containers
+- runs on your self-hosted runner
+- copies `docker-compose.yml` into `DEPLOY_PATH`
+- writes `.env.production` from `PROD_ENV_FILE`
+- pulls the latest image and starts the containers locally with Docker Compose
 
-## 8. First deployment
+## 10. First deployment
 
-After the repo is pushed and secrets are added:
+After the repo is pushed, the runner is online, and the secrets/variables are added:
 
 1. Push to `master`, or run the `Deploy` workflow manually from the Actions tab.
 2. Open `https://your-domain.example.com`.
 3. Verify API health by opening `https://your-domain.example.com/api`.
 
-## 9. Local Docker run
+If the workflow fails, first check:
+
+- the self-hosted runner is online
+- `DEPLOY_PATH` exists and is writable
+- the runner user can run `docker` and `docker compose`
+- `PROD_ENV_FILE` has valid production values
+
+## 11. Local Docker run
 
 For a local production-like run:
 
