@@ -22,6 +22,12 @@ export const fetchRun = (id) => client.get(`/runs/${id}`);
 
 export const listRunsApi = (params = {}) => client.get("/runs", { params });
 
+export const exportGroundTruthDatasetApi = (params = {}) =>
+  client.get("/runs/export/ground-truth", {
+    params,
+    responseType: "blob",
+  });
+
 export const deleteRunApi = (id) => client.delete(`/runs/${id}`);
 
 export const createShareLinkApi = (id, ttl = 72) =>

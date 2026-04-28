@@ -5,6 +5,7 @@ import { Benchmark } from "./entities/Benchmark";
 import { ComparisonRun } from "./entities/ComparisonRun";
 import { DocumentType } from "./entities/DocumentType";
 import { Model } from "./entities/Model";
+import { AppSetting } from "./entities/AppSetting";
 import { User } from "./entities/User";
 
 let connection: Connection | null = null;
@@ -21,7 +22,14 @@ export const AppDataSource = {
         database: config.db.database,
         synchronize: config.db.synchronize,
         logging: config.db.logging,
-        entities: [Model, User, DocumentType, ComparisonRun, Benchmark],
+        entities: [
+          AppSetting,
+          Model,
+          User,
+          DocumentType,
+          ComparisonRun,
+          Benchmark,
+        ],
       });
     }
 

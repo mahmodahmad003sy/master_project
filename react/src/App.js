@@ -21,6 +21,7 @@ import LoginPage from "./pages/LoginPage";
 import ModelsPage from "./pages/ModelsPage";
 import PresentationPage from "./pages/PresentationPage";
 import RegisterPage from "./pages/RegisterPage";
+import RuntimeSettingsPage from "./pages/RuntimeSettingsPage";
 import RunDetailPage from "./pages/RunDetailPage";
 import RunsPage from "./pages/RunsPage";
 
@@ -46,6 +47,8 @@ export default function App() {
       ? "/analytics"
     : pathname.startsWith("/document-types/")
       ? "/document-types"
+    : pathname.startsWith("/settings")
+      ? "/settings"
     : pathname;
 
   return (
@@ -75,6 +78,9 @@ export default function App() {
             </Menu.Item>
             <Menu.Item key="/document-types">
               <Link to="/document-types">Document Types</Link>
+            </Menu.Item>
+            <Menu.Item key="/settings">
+              <Link to="/settings">Settings</Link>
             </Menu.Item>
           </Menu>
 
@@ -116,6 +122,7 @@ export default function App() {
                     path="/document-types/:id"
                     element={<DocumentTypeWizard />}
                   />
+                  <Route path="/settings" element={<RuntimeSettingsPage />} />
                   <Route path="/" element={<Navigate to="/compare" replace />} />
                   <Route path="*" element={<Navigate to="/compare" replace />} />
                 </Routes>

@@ -5,14 +5,16 @@ import {
   Space,
   Table,
   Tag,
+  Tooltip,
   Typography,
   message,
 } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
   activateDocumentType,
+  deleteDocumentType,
   loadDocumentTypes,
   updateDocumentType,
 } from "../features/documentTypes/documentTypesSlice";
@@ -62,6 +64,15 @@ export default function DocumentTypesPage() {
         })
       ).unwrap();
       message.success("Document type archived");
+    } catch (error) {
+      message.error(String(error));
+    }
+  };
+
+  const handleDelete = async (record) => {
+    try {
+      await dispatch(deleteDocumentType(record.id)).unwrap();
+      message.success("Document type deleted");
     } catch (error) {
       message.error(String(error));
     }
@@ -136,7 +147,7 @@ export default function DocumentTypesPage() {
           },
           {
             title: "Actions",
-            width: 220,
+            width: 320,
             render: (_, record) => (
               <Space>
                 <Button onClick={() => navigate(`/document-types/${record.id}`)}>
@@ -159,6 +170,21 @@ export default function DocumentTypesPage() {
                     Archive
                   </Button>
                 </Popconfirm>
+                {record.status === "active" ? (
+                  <Tooltip title="Archive the document type before deleting it">
+                    <Button danger icon={<DeleteOutlined />} disabled />
+                  </Tooltip>
+                ) : (
+                  <Popconfirm
+                    title={`Delete "${record.name}"?`}
+                    description="Deletion is blocked if runs or attached models still exist."
+                    onConfirm={() => handleDelete(record)}
+                  >
+                    <Button danger icon={<DeleteOutlined />}>
+                      Delete
+                    </Button>
+                  </Popconfirm>
+                )}
               </Space>
             ),
           },

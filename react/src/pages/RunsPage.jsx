@@ -21,7 +21,10 @@ import {
 } from "@ant-design/icons";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { runImageSrc } from "../api/compare";
+import {
+  exportGroundTruthDatasetApi,
+  runImageSrc,
+} from "../api/compare";
 import { loadDocumentTypes } from "../features/documentTypes/documentTypesSlice";
 import {
   deleteRun,
@@ -40,6 +43,34 @@ function versionTag(value) {
   return value != null ? <Tag>v{value}</Tag> : "-";
 }
 
+function parseFilenameFromDisposition(headerValue) {
+  if (!headerValue) {
+    return null;
+  }
+
+  const match = headerValue.match(/filename="?([^"]+)"?/i);
+  return match?.[1] || null;
+}
+
+async function extractBlobErrorMessage(error) {
+  const data = error?.response?.data;
+  if (!(data instanceof Blob)) {
+    return (
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      "export failed"
+    );
+  }
+
+  try {
+    const parsed = JSON.parse(await data.text());
+    return parsed.message || parsed.error || error.message || "export failed";
+  } catch {
+    return error.message || "export failed";
+  }
+}
+
 export default function RunsPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -53,6 +84,7 @@ export default function RunsPage() {
   const [hasGroundTruth, setHasGroundTruth] = useState(filters.hasGroundTruth);
   const [dateRange, setDateRange] = useState([null, null]);
   const [showAdvancedColumns, setShowAdvancedColumns] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     dispatch(loadDocumentTypes());
@@ -98,6 +130,45 @@ export default function RunsPage() {
       message.success("Run deleted");
     } catch (error) {
       message.error(String(error));
+    }
+  };
+
+  const handleExportGroundTruthDataset = async () => {
+    setExporting(true);
+
+    try {
+      const visibleRunIds = items
+        .filter((item) => item.hasGroundTruth)
+        .map((item) => item.id);
+
+      if (visibleRunIds.length === 0) {
+        message.warning("No visible runs with ground truth to export");
+        return;
+      }
+
+      const { data, headers } = await exportGroundTruthDatasetApi({
+        ...filters,
+        hasGroundTruth: "true",
+        runIds: visibleRunIds.join(","),
+      });
+      const filename =
+        parseFilenameFromDisposition(headers["content-disposition"]) ||
+        "ground-truth-dataset.zip";
+      const blobUrl = window.URL.createObjectURL(
+        new Blob([data], { type: "application/zip" })
+      );
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+      message.success("Ground-truth dataset downloaded");
+    } catch (error) {
+      message.error(await extractBlobErrorMessage(error));
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -302,6 +373,13 @@ export default function RunsPage() {
         />
         <Button type="primary" onClick={applyFilters}>
           Apply
+        </Button>
+        <Button
+          onClick={handleExportGroundTruthDataset}
+          loading={exporting}
+          disabled={hasGroundTruth === "false"}
+        >
+          Export GT dataset
         </Button>
         <Button onClick={resetAll}>Reset</Button>
         <Button icon={<ReloadOutlined />} onClick={() => dispatch(loadRuns())} />

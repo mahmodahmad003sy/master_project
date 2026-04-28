@@ -9,6 +9,7 @@ import documentTypesRouter from "./documentTypes";
 import downloadRouter from "./download";
 import modelsRouter from "./models";
 import runsRouter, { getPublicImage, getPublicRun } from "./runs";
+import settingsRouter from "./settings";
 import { requireAuth } from "../utils/authMiddleware";
 import { asyncHandler } from "../utils/asyncHandler";
 import { requireSyncToken } from "../utils/syncTokenMiddleware";
@@ -33,6 +34,7 @@ router.get(
 );
 router.use("/models", requireAuth, modelsRouter);
 router.use("/document-types", requireAuth, documentTypesRouter);
+router.use("/settings", requireAuth, settingsRouter);
 router.use("/analytics", requireAuth, analyticsRouter);
 router.use("/benchmarks", requireAuth, benchmarksRouter);
 router.use(requireAuth, runsRouter);

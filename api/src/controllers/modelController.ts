@@ -6,6 +6,7 @@ import { Model } from "../entities/Model";
 import { DocumentType } from "../entities/DocumentType";
 import config from "../config";
 import { collectCanonicalLabels } from "../services/documentTypeValidation";
+import { getRuntimeSettingValue } from "../services/runtimeSettings";
 
 export interface CreateModelParams {
   name: string;
@@ -255,6 +256,23 @@ export const deleteModel = async (
     };
   }
 
+  const documentType =
+    model.documentTypeId == null
+      ? null
+      : await DocumentType.findOne({ where: { id: Number(model.documentTypeId) } });
+
+  if (documentType?.status === "active" && documentType.detectorModelId === model.id) {
+    throw {
+      statusCode: 409,
+      message: "cannot delete the detector model attached to an active document type",
+    };
+  }
+
+  if (documentType?.detectorModelId === model.id) {
+    documentType.detectorModelId = null as any;
+    await documentType.save();
+  }
+
   if (model.filePath) {
     await fsp.unlink(model.filePath).catch(() => undefined);
   }
@@ -268,7 +286,13 @@ export const listActiveModels = async (
   res: Response,
 ): Promise<void> => {
   const models = await Model.find({ where: { status: "active" } });
-  const publicBase = String(config.PUBLIC_API_URL ?? "").replace(/\/$/, "");
+  const publicBase = String(
+    await getRuntimeSettingValue("PUBLIC_API_URL"),
+  ).replace(/\/$/, "");
+
+  if (!publicBase) {
+    throw { statusCode: 500, message: "PUBLIC_API_URL is not configured" };
+  }
 
   const rows = await Promise.all(
     models.map(async (model) => {

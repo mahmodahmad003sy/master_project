@@ -3,6 +3,7 @@ import {
   activateDocumentType,
   attachDetector,
   createDocumentType,
+  deleteDocumentType,
   getDocumentType,
   listModelsForDocumentType,
   listDocumentTypes,
@@ -17,6 +18,7 @@ router.get("/:id", asyncHandler(getDocumentType));
 router.get("/:id/models", asyncHandler(listModelsForDocumentType));
 router.post("/", asyncHandler(createDocumentType));
 router.put("/:id", asyncHandler(updateDocumentType));
+router.delete("/:id", asyncHandler(deleteDocumentType));
 router.post("/:id/activate", asyncHandler(activateDocumentType));
 router.post("/:id/detector-model", asyncHandler(attachDetector));
 

@@ -1,3 +1,4 @@
+import AdmZip from "adm-zip";
 import fs from "fs";
 import { Request, Response } from "express";
 import { SelectQueryBuilder } from "typeorm";
@@ -51,6 +52,17 @@ function parseDateParam(label: string, value: string | undefined) {
   return parsed;
 }
 
+function parseRunIdsParam(value: string | undefined): number[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((part) => Number(part.trim()))
+    .filter((id) => Number.isInteger(id) && id > 0);
+}
+
 function applyDateFilters(
   qb: SelectQueryBuilder<ComparisonRun>,
   dateFrom: Date | null,
@@ -65,6 +77,63 @@ function applyDateFilters(
   if (dateTo) {
     qb.andWhere("run.createdAt <= :dateTo", { dateTo: dateTo.toISOString() });
   }
+}
+
+function buildRunsQuery(
+  req: AuthRequest,
+  query: Record<string, string | undefined>,
+  options?: {
+    includePagination?: boolean;
+    forceHasGroundTruth?: boolean;
+    explicitRunIds?: number[];
+  },
+) {
+  const limit = Math.min(parseIntegerParam(query.limit, 20), 200);
+  const offset = parseIntegerParam(query.offset, 0);
+  const dateFrom = parseDateParam("dateFrom", query.dateFrom);
+  const dateTo = parseDateParam("dateTo", query.dateTo);
+
+  const qb = ComparisonRun.createQueryBuilder("run")
+    .leftJoin("run.user", "user")
+    .orderBy("run.createdAt", "DESC");
+
+  if (options?.includePagination !== false) {
+    qb.take(limit).skip(offset);
+  }
+
+  if (req.userId) {
+    qb.andWhere("user.id = :userId", { userId: req.userId });
+  }
+
+  if (query.search) {
+    qb.andWhere("LOWER(run.filename) LIKE LOWER(:search)", {
+      search: `%${query.search}%`,
+    });
+  }
+
+  if (query.documentType) {
+    qb.andWhere("run.documentType = :documentType", {
+      documentType: query.documentType,
+    });
+  }
+
+  if (options?.explicitRunIds?.length) {
+    qb.andWhere("run.id IN (:...runIds)", {
+      runIds: options.explicitRunIds,
+    });
+  }
+
+  if (options?.forceHasGroundTruth) {
+    qb.andWhere("run.hasGroundTruth = true");
+  } else if (query.hasGroundTruth === "true") {
+    qb.andWhere("run.hasGroundTruth = true");
+  } else if (query.hasGroundTruth === "false") {
+    qb.andWhere("run.hasGroundTruth = false");
+  }
+
+  applyDateFilters(qb, dateFrom, dateTo);
+
+  return { qb, limit, offset, dateFrom, dateTo };
 }
 
 async function findRunForUser(id: number, userId?: number) {
@@ -147,45 +216,128 @@ export const postCompare = async (req: AuthRequest, res: Response) => {
 
 export const listRuns = async (req: AuthRequest, res: Response) => {
   const query = req.query as Record<string, string | undefined>;
-  const limit = Math.min(parseIntegerParam(query.limit, 20), 200);
-  const offset = parseIntegerParam(query.offset, 0);
-  const dateFrom = parseDateParam("dateFrom", query.dateFrom);
-  const dateTo = parseDateParam("dateTo", query.dateTo);
-
-  const qb = ComparisonRun.createQueryBuilder("run")
-    .leftJoin("run.user", "user")
-    .orderBy("run.createdAt", "DESC")
-    .take(limit)
-    .skip(offset);
-
-  if (req.userId) {
-    qb.andWhere("user.id = :userId", { userId: req.userId });
-  }
-
-  if (query.search) {
-    qb.andWhere("LOWER(run.filename) LIKE LOWER(:search)", {
-      search: `%${query.search}%`,
-    });
-  }
-
-  if (query.documentType) {
-    qb.andWhere("run.documentType = :documentType", {
-      documentType: query.documentType,
-    });
-  }
-
-  if (query.hasGroundTruth === "true") {
-    qb.andWhere("run.hasGroundTruth = true");
-  }
-
-  if (query.hasGroundTruth === "false") {
-    qb.andWhere("run.hasGroundTruth = false");
-  }
-
-  applyDateFilters(qb, dateFrom, dateTo);
+  const { qb } = buildRunsQuery(req, query);
 
   const [items, total] = await qb.getManyAndCount();
   res.json({ total, items });
+};
+
+export const exportGroundTruthDataset = async (
+  req: AuthRequest,
+  res: Response,
+) => {
+  const query = req.query as Record<string, string | undefined>;
+  const explicitRunIds = parseRunIdsParam(query.runIds);
+
+  if (query.hasGroundTruth === "false") {
+    throw {
+      statusCode: 400,
+      message: "ground-truth export requires runs that have ground truth",
+    };
+  }
+
+  const { qb } = buildRunsQuery(req, query, {
+    includePagination: false,
+    forceHasGroundTruth: true,
+    explicitRunIds,
+  });
+  const runs = await qb.getMany();
+
+  const zip: any = new AdmZip();
+  const manifest: Array<Record<string, unknown>> = [];
+  const skippedRuns: Array<Record<string, unknown>> = [];
+
+  for (const run of runs) {
+    const groundTruth = await readJson(artifactPath(run.id, "ground_truth"));
+    if (!groundTruth) {
+      if (run.hasGroundTruth) {
+        run.hasGroundTruth = false;
+        run.summary = null;
+        await run.save();
+      }
+
+      skippedRuns.push({
+        id: run.id,
+        filename: run.filename,
+        documentType: run.documentType,
+        reason: "ground_truth.json is missing",
+      });
+      continue;
+    }
+
+    const folder = `runs/${run.id}`;
+    const metadata = {
+      id: run.id,
+      filename: run.filename,
+      documentType: run.documentType,
+      documentTypeVersion: run.documentTypeVersion ?? null,
+      detectorModelId: run.detectorModelId ?? null,
+      detectorModelVersion: run.detectorModelVersion ?? null,
+      createdAt: run.createdAt,
+      hasGroundTruth: run.hasGroundTruth,
+    };
+
+    zip.addFile(
+      `${folder}/ground_truth.json`,
+      Buffer.from(JSON.stringify(groundTruth, null, 2), "utf-8"),
+    );
+    zip.addFile(
+      `${folder}/metadata.json`,
+      Buffer.from(JSON.stringify(metadata, null, 2), "utf-8"),
+    );
+
+    const sourceImagePath = imagePath(run.id, run.imageName);
+    if (fs.existsSync(sourceImagePath)) {
+      zip.addLocalFile(sourceImagePath, folder, run.imageName);
+    }
+
+    manifest.push(metadata);
+  }
+
+  zip.addFile(
+    "manifest.json",
+    Buffer.from(
+      JSON.stringify(
+        {
+          exportedAt: new Date().toISOString(),
+          filters: {
+            search: query.search ?? null,
+            documentType: query.documentType ?? null,
+            hasGroundTruth: true,
+            dateFrom: query.dateFrom ?? null,
+            dateTo: query.dateTo ?? null,
+          },
+          totalRuns: manifest.length,
+          runs: manifest,
+          skippedRuns,
+        },
+        null,
+        2,
+      ),
+      "utf-8",
+    ),
+  );
+
+  if (manifest.length === 0) {
+    zip.addFile(
+      "README.txt",
+      Buffer.from(
+        [
+          "No exportable ground truth artifacts were found for the selected runs.",
+          "See manifest.json for skipped run details.",
+        ].join("\n"),
+        "utf-8",
+      ),
+    );
+  }
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="ground-truth-dataset-${timestamp}.zip"`,
+  );
+  res.send(zip.toBuffer());
 };
 
 export const getRun = async (req: AuthRequest, res: Response) => {

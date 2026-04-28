@@ -4,6 +4,7 @@ import {
   createShareLink,
   deleteGroundTruth,
   deleteRun,
+  exportGroundTruthDataset,
   getArtifact,
   getPublicImage,
   getPublicRun,
@@ -20,6 +21,7 @@ const upload = multer({ dest: "tmp/" });
 
 router.post("/compare", upload.single("file"), asyncHandler(postCompare));
 router.get("/runs", asyncHandler(listRuns));
+router.get("/runs/export/ground-truth", asyncHandler(exportGroundTruthDataset));
 router.get("/runs/:id", asyncHandler(getRun));
 router.delete("/runs/:id", asyncHandler(deleteRun));
 router.post("/runs/:id/share", asyncHandler(createShareLink));

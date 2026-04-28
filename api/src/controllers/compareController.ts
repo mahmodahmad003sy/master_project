@@ -6,6 +6,7 @@ import config from "../config";
 import { ComparisonRun } from "../entities/ComparisonRun";
 import { DocumentType } from "../entities/DocumentType";
 import { Model } from "../entities/Model";
+import { getRuntimeSettingsMap } from "../services/runtimeSettings";
 import { User } from "../entities/User";
 import {
   artifactPath,
@@ -14,14 +15,14 @@ import {
   readJson,
   writeJson,
 } from "../services/runStorage";
-
-const COMPARE_BASE_URL = String(
-  (config as { COMPARE_SERVICE_URL?: string }).COMPARE_SERVICE_URL ?? "",
-);
-const COMPARE_URL = `${COMPARE_BASE_URL.replace(/\/+$/, "")}/compare`;
 const COMPARE_TIMEOUT_MS = 10 * 60 * 1000;
-const PUBLIC_API_URL = String(config.PUBLIC_API_URL ?? "").replace(/\/+$/, "");
-const COLAB_SYNC_TOKEN = String(config.COLAB_SYNC_TOKEN ?? "");
+
+type CompareRuntimeSettings = {
+  compareBaseUrl: string;
+  compareUrl: string;
+  publicApiUrl: string;
+  colabSyncToken: string;
+};
 
 function extractTimings(response: any): Record<string, number> | null {
   const raw =
@@ -140,6 +141,7 @@ function mapCompareServiceError(error: any) {
 }
 
 async function postCompareRequest(
+  runtimeSettings: CompareRuntimeSettings,
   destinationImagePath: string,
   originalname: string,
   documentType: DocumentType,
@@ -161,8 +163,11 @@ async function postCompareRequest(
   form.append("modelId", String(model.id));
   form.append("modelVersion", String(model.version ?? 1));
   form.append("modelSha256", model.sha256 ?? "");
-  form.append("modelDownloadUrl", `${PUBLIC_API_URL}/models/${model.id}/download`);
-  form.append("syncToken", COLAB_SYNC_TOKEN);
+  form.append(
+    "modelDownloadUrl",
+    `${runtimeSettings.publicApiUrl}/models/${model.id}/download`,
+  );
+  form.append("syncToken", runtimeSettings.colabSyncToken);
   form.append("classMap", JSON.stringify(model.classMap ?? {}));
   form.append(
     "labelRoles",
@@ -184,7 +189,7 @@ async function postCompareRequest(
     });
   });
 
-  return axios.post(COMPARE_URL, form, {
+  return axios.post(runtimeSettings.compareUrl, form, {
     headers: {
       ...form.getHeaders(),
       "Content-Length": String(contentLength),
@@ -250,6 +255,30 @@ export async function runCompare(opts: {
     };
   }
 
+  const settings = await getRuntimeSettingsMap();
+  const runtimeSettings: CompareRuntimeSettings = {
+    compareBaseUrl: String(settings.COMPARE_SERVICE_URL ?? "").replace(
+      /\/+$/,
+      "",
+    ),
+    compareUrl: "",
+    publicApiUrl: String(settings.PUBLIC_API_URL ?? "").replace(/\/+$/, ""),
+    colabSyncToken: String(settings.COLAB_SYNC_TOKEN ?? "").trim(),
+  };
+  runtimeSettings.compareUrl = `${runtimeSettings.compareBaseUrl}/compare`;
+
+  if (!runtimeSettings.compareBaseUrl) {
+    throw { statusCode: 500, message: "COMPARE_SERVICE_URL is not configured" };
+  }
+
+  if (!runtimeSettings.publicApiUrl) {
+    throw { statusCode: 500, message: "PUBLIC_API_URL is not configured" };
+  }
+
+  if (!runtimeSettings.colabSyncToken) {
+    throw { statusCode: 500, message: "COLAB_SYNC_TOKEN is not configured" };
+  }
+
   const user = userId ? await User.findOne({ where: { id: userId } }) : null;
   const run = ComparisonRun.create({
     user,
@@ -278,6 +307,7 @@ export async function runCompare(opts: {
   let response: any;
   try {
     const compareResponse = await postCompareRequest(
+      runtimeSettings,
       destinationImagePath,
       file.originalname,
       documentType,
@@ -289,6 +319,7 @@ export async function runCompare(opts: {
     try {
       if (shouldRetryCompareRequest(error)) {
         const retryResponse = await postCompareRequest(
+          runtimeSettings,
           destinationImagePath,
           file.originalname,
           documentType,
@@ -302,7 +333,7 @@ export async function runCompare(opts: {
     } catch (finalError) {
       await writeJson(artifactPath(run.id, "raw_response"), {
         ok: false,
-        compareUrl: COMPARE_URL,
+        compareUrl: runtimeSettings.compareUrl,
         error: toCompareError(finalError),
       });
       await run.save();

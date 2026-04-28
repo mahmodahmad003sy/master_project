@@ -63,6 +63,22 @@ export const activateDocumentType = createAsyncThunk(
   }
 );
 
+export const deleteDocumentType = createAsyncThunk(
+  "documentTypes/delete",
+  async (id, { rejectWithValue }) => {
+    try {
+      await api.remove(id);
+      return id;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          "delete failed"
+      );
+    }
+  }
+);
+
 export const attachDetector = createAsyncThunk(
   "documentTypes/attachDetector",
   async ({ id, modelId }, { rejectWithValue }) => {
@@ -156,6 +172,18 @@ const documentTypesSlice = createSlice({
         upsertItem(state.items, action.payload);
       })
       .addCase(attachDetector.rejected, (state, action) => {
+        state.status = "fail";
+        state.error = action.payload;
+      })
+      .addCase(deleteDocumentType.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(deleteDocumentType.fulfilled, (state, action) => {
+        state.status = "ok";
+        state.items = state.items.filter((item) => item.id !== action.payload);
+      })
+      .addCase(deleteDocumentType.rejected, (state, action) => {
         state.status = "fail";
         state.error = action.payload;
       });

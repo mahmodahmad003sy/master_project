@@ -171,6 +171,7 @@ export default function RunDetailPage() {
         onClose={() => setGroundTruthOpen(false)}
         runId={detail.run.id}
         initialGt={groundTruth}
+        schema={schema}
       />
 
       <Card style={{ marginBottom: 16 }}>

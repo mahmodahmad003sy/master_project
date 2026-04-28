@@ -9,6 +9,8 @@ export const create = (payload) => client.post("/document-types", payload);
 export const update = (id, payload) =>
   client.put(`/document-types/${id}`, payload);
 
+export const remove = (id) => client.delete(`/document-types/${id}`);
+
 export const activate = (id) => client.post(`/document-types/${id}/activate`);
 
 export const attachDetector = (id, modelId) =>

@@ -299,6 +299,7 @@ export default function ComparePage() {
         onClose={() => setGroundTruthOpen(false)}
         runId={comparisonState.currentRunId}
         initialGt={groundTruth}
+        schema={schema}
       />
 
       {comparisonState.status === "fail" ? (
