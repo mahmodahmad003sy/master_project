@@ -178,6 +178,12 @@ If the workflow fails, first check:
 - the runner user can run `docker` and either `docker compose` or `docker-compose`
 - `PROD_ENV_FILE` has valid production values
 
+If deploy fails with an error like `ERROR: for application_app_1 'ContainerConfig'`:
+
+- this usually comes from old `docker-compose` recreate behavior on the server
+- the workflow already works around it by removing the old `app` container before bringing the new one up
+- long-term, prefer installing the Docker Compose v2 plugin so `docker compose` is available
+
 ## 11. Local Docker run
 
 For a local production-like run:

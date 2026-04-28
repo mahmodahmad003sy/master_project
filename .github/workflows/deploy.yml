@@ -89,5 +89,8 @@ jobs:
           fi
 
           APP_IMAGE="${{ needs.publish.outputs.image_name }}:latest" compose pull app
-          APP_IMAGE="${{ needs.publish.outputs.image_name }}:latest" compose up -d
+          compose up -d db
+          compose rm -f -s app || true
+          APP_IMAGE="${{ needs.publish.outputs.image_name }}:latest" compose up -d --no-deps app
+          compose ps
           docker image prune -f
