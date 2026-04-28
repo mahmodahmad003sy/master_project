@@ -64,7 +64,7 @@ For Docker deployment, keep:
 Install on the server:
 
 - Docker Engine
-- Docker Compose plugin
+- Docker Compose plugin or `docker-compose`
 - a self-hosted GitHub Actions runner
 
 Quick check:
@@ -72,6 +72,12 @@ Quick check:
 ```bash
 docker --version
 docker compose version
+```
+
+If `docker compose version` fails, this is also acceptable:
+
+```bash
+docker-compose --version
 ```
 
 ## 6. Self-hosted runner setup
@@ -154,6 +160,7 @@ DEPLOY_PATH=/opt/application
 - runs on your self-hosted runner
 - copies `docker-compose.yml` into `DEPLOY_PATH`
 - writes `.env.production` from `PROD_ENV_FILE`
+- also copies `.env.production` to `.env` for Compose compatibility
 - pulls the latest image and starts the containers locally with Docker Compose
 
 ## 10. First deployment
@@ -168,7 +175,7 @@ If the workflow fails, first check:
 
 - the self-hosted runner is online
 - `DEPLOY_PATH` exists and is writable
-- the runner user can run `docker` and `docker compose`
+- the runner user can run `docker` and either `docker compose` or `docker-compose`
 - `PROD_ENV_FILE` has valid production values
 
 ## 11. Local Docker run
