@@ -1,7 +1,7 @@
 // src/utils/authMiddleware.ts
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import config from "../../config/default.json";
+import config from "../config";
 
 const JWT_SECRET = config.auth.jwtSecret;
 

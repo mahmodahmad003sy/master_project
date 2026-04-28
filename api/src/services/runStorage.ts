@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import config from "../../config/default.json";
+import config from "../config";
 
 export const RUNS_ROOT: string = config.RUNS_BASE_PATH;
 

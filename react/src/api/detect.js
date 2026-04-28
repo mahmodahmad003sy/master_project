@@ -1,5 +1,5 @@
 // src/api/detect.js
-const BASE = process.env.REACT_APP_API_URL;
+import { API_BASE_URL } from "./client";
 
 export async function runDetection(file, modelId) {
   const token = localStorage.getItem("token");
@@ -11,7 +11,7 @@ export async function runDetection(file, modelId) {
   const form = new FormData();
   form.append("file", file);
 
-  const res = await fetch(`${BASE}/detect?ids=${modelId}`, {
+  const res = await fetch(`${API_BASE_URL}/detect?ids=${modelId}`, {
     method: "POST",
     headers: {
       Accept: "application/json",

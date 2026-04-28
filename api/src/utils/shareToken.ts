@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import config from "../../config/default.json";
+import config from "../config";
 
 const SECRET = config.auth.jwtSecret;
 

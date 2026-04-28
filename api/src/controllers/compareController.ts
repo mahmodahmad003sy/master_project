@@ -2,7 +2,7 @@ import axios from "axios";
 import fs from "fs";
 import FormData from "form-data";
 import path from "path";
-import config from "../../config/default.json";
+import config from "../config";
 import { ComparisonRun } from "../entities/ComparisonRun";
 import { DocumentType } from "../entities/DocumentType";
 import { Model } from "../entities/Model";

@@ -1,0 +1,9 @@
+.git
+.github
+**/node_modules
+**/dist
+react/build
+api/tmp
+**/.env
+**/.env.*
+colab_app2.ipynb

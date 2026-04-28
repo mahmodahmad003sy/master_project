@@ -1,10 +1,10 @@
 // src/components/ResultsView.jsx
 import React from "react";
 import { Card, Image, Typography } from "antd";
+import { API_BASE_URL } from "../api/client";
 const { Paragraph } = Typography;
 
 export default function ResultsView({ data }) {
-  const BASE = process.env.REACT_APP_API_URL || "http://localhost:3000";
   if (!data?.results?.length) {
     return null;
   }
@@ -12,7 +12,7 @@ export default function ResultsView({ data }) {
   return (
     <Card title="Detection Output" style={{ marginTop: 16 }}>
       <Image
-        src={`${BASE}${data.results[0].image_url}`}
+        src={`${API_BASE_URL}${data.results[0].image_url}`}
         alt="Annotated"
         style={{ maxWidth: "100%", marginBottom: 16 }}
       />

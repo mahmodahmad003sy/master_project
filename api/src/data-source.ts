@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { Connection, createConnection, getRepository } from "typeorm";
-import config from "../config/default.json";
+import config from "./config";
 import { Benchmark } from "./entities/Benchmark";
 import { ComparisonRun } from "./entities/ComparisonRun";
 import { DocumentType } from "./entities/DocumentType";

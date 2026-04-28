@@ -2,7 +2,7 @@ import "reflect-metadata";
 import crypto from "crypto";
 import { promises as fsp } from "fs";
 import path from "path";
-import config from "../../config/default.json";
+import config from "../config";
 import { AppDataSource } from "../data-source";
 import { DocumentType } from "../entities/DocumentType";
 import { Model } from "../entities/Model";

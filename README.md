@@ -24,3 +24,5 @@ weights from the Node API. The staged migration plan is documented in
 - The Node process serves both the API and the built React app.
 - Existing runs, benchmarks, and analytics remain usable even if the compare
   service is temporarily unavailable.
+- Deployment files and setup steps are documented in
+  [DEPLOYMENT.md](./DEPLOYMENT.md).

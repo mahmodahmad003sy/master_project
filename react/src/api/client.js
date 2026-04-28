@@ -1,7 +1,15 @@
 import axios from "axios";
 
+function fallbackBaseUrl() {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}/api`;
+  }
+
+  return "http://localhost:3000/api";
+}
+
 function normalizeBaseUrl(rawBaseUrl) {
-  const trimmed = (rawBaseUrl || "http://localhost:3000").replace(/\/+$/, "");
+  const trimmed = (rawBaseUrl || fallbackBaseUrl()).replace(/\/+$/, "");
   return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
 }
 

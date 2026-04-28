@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import config from "../../config/default.json";
+import config from "../config";
 
 export const requireSyncToken = (
   req: Request,

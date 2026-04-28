@@ -6,9 +6,9 @@ import path from "path";
 import cors from "cors";
 import "dotenv/config";
 import routes from "./routes";
+import config from "./config";
 import { AppDataSource } from "./data-source";
 import { Benchmark } from "./entities/Benchmark";
-import config from "../config/default.json";
 import { ensureRunsRoot, RUNS_ROOT } from "./services/runStorage";
 
 const upload = multer({ dest: "tmp/" });

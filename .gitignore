@@ -1,2 +1,3 @@
 scripts/seed_assets/*.pt
 !scripts/seed_assets/.gitkeep
+.env.production

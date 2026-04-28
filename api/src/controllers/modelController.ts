@@ -4,7 +4,7 @@ import fs, { promises as fsp } from "fs";
 import path from "path";
 import { Model } from "../entities/Model";
 import { DocumentType } from "../entities/DocumentType";
-import config from "./../../config/default.json";
+import config from "../config";
 import { collectCanonicalLabels } from "../services/documentTypeValidation";
 
 export interface CreateModelParams {
